@@ -581,16 +581,21 @@ function switchTab(n){
 
 // ======== Supabase設定 ========
 const SUPABASE_URL='https://yqwdotbowmoaxmqqpidr.supabase.co';
-const SUPABASE_KEY='sb_publishable_glmTeKs54pUJe434c_DIug_dYyuj9Im';
-let supabase=null;
+const SUPABASE_KEY='ここにPublishable_keyを貼り付ける';
+let sbClient=null;
 
 async function initSupabase(){
+  // SDKのロードを最大3秒待つ
+  for(let i=0;i<30;i++){
+    if(typeof window.supabase!=='undefined') break;
+    await new Promise(r=>setTimeout(r,100));
+  }
   if(typeof window.supabase==='undefined'){
-    console.warn('Supabase SDKが読み込まれていません');
+    console.warn('Supabase SDKが読み込まれていません。デモモードで動作します。');
     return null;
   }
-  supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-  return supabase;
+  sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  return sbClient;
 }
 
 // ======== ログイン処理 ========
@@ -600,7 +605,7 @@ async function doLogin(){
   const errEl=document.getElementById('l-error');
   if(errEl) errEl.style.display='none';
 
-  if(!supabase){
+  if(!sbClient){
     // Supabase未接続の場合はデモモードで動作
     showOnboarding();
     return;
@@ -610,7 +615,7 @@ async function doLogin(){
     return;
   }
   const btn=event.target;btn.textContent='ログイン中...';btn.disabled=true;
-  const {data,error}=await supabase.auth.signInWithPassword({email,password:pass});
+  const {data,error}=await sbClient.auth.signInWithPassword({email,password:pass});
   btn.textContent='ログイン';btn.disabled=false;
   if(error){
     if(errEl){errEl.textContent='メールアドレスまたはパスワードが違います';errEl.style.display='block';}
@@ -623,24 +628,24 @@ async function doLogin(){
 async function doRegister(){
   const email=document.getElementById('l-email')?.value?.trim();
   const pass=document.getElementById('l-pass')?.value;
-  if(!supabase){showOnboarding();return;}
+  if(!sbClient){showOnboarding();return;}
   if(!email||!pass){return;}
-  const {data,error}=await supabase.auth.signUp({email,password:pass});
+  const {data,error}=await sbClient.auth.signUp({email,password:pass});
   if(error){console.error(error);return;}
   showOnboarding();
 }
 
 async function doGoogleLogin(){
-  if(!supabase){showOnboarding();return;}
-  await supabase.auth.signInWithOAuth({
+  if(!sbClient){showOnboarding();return;}
+  await sbClient.auth.signInWithOAuth({
     provider:'google',
     options:{redirectTo:'https://wawapta.github.io/Prototype'}
   });
 }
 
 async function loadProfile(user){
-  if(!supabase||!user)return;
-  const {data}=await supabase.from('profiles').select('*').eq('id',user.id).single();
+  if(!sbClient||!user)return;
+  const {data}=await sbClient.from('profiles').select('*').eq('id',user.id).single();
   if(data){
     // 既存プロフィールをUIに反映
     const nick=data.nickname||'ゲスト';
@@ -655,10 +660,10 @@ async function loadProfile(user){
 }
 
 async function saveProfile(nick,emoji,grades){
-  if(!supabase)return;
-  const {data:{user}}=await supabase.auth.getUser();
+  if(!sbClient)return;
+  const {data:{user}}=await sbClient.auth.getUser();
   if(!user)return;
-  await supabase.from('profiles').upsert({
+  await sbClient.from('profiles').upsert({
     id:user.id,
     nickname:nick,
     emoji:emoji,
@@ -681,22 +686,22 @@ function showMain(){
 }
 
 async function doLogout(){
-  if(supabase) await supabase.auth.signOut();
+  if(sbClient) await sbClient.auth.signOut();
   location.reload();
 }
 
 // ======== 起動時チェック ========
 (async()=>{
   await initSupabase();
-  if(!supabase)return;
+  if(!sbClient)return;
   // セッション確認
-  const {data:{session}}=await supabase.auth.getSession();
+  const {data:{session}}=await sbClient.auth.getSession();
   if(session){
     await loadProfile(session.user);
     showMain();
   }
   // 認証状態変化を監視
-  supabase.auth.onAuthStateChange(async(event,session)=>{
+  sbClient.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_IN'&&session){
       await loadProfile(session.user);
       showMain();
