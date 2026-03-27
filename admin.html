@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WaWa 管理者画面</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --g50:#edf6ff;--g100:#c8e4ff;--g200:#85b7eb;--g600:#2878d6;--g800:#1558a0;
+  --a50:#fff8e6;--a100:#fde9a0;--a400:#e0a800;--a800:#7a5800;
+  --b50:#edf6ff;--b100:#c8e4ff;--b600:#2878d6;--b800:#1558a0;
+  --r50:#fff0ed;--r600:#e05c3a;--r800:#a03020;
+  --p50:#f3f0ff;--p100:#d5ceff;--p600:#6c54e8;
+  --t:#0c2d54;--ts:#2878d6;--cbp:#fff;--cbs:#edf6ff;
+  --cb1:rgba(40,120,214,0.13);
+  --fs:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;
+  --fm:'SF Mono','Courier New',monospace;
+}
+html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--t);}
+.layout{display:flex;min-height:100vh;}
+
+/* サイドバー */
+.sidebar{width:220px;background:#fff;border-right:0.5px solid var(--cb1);flex-shrink:0;display:flex;flex-direction:column;}
+.sb-logo{padding:1.25rem 1rem;border-bottom:0.5px solid var(--cb1);display:flex;align-items:center;gap:8px;}
+.sb-wm{font-size:20px;font-weight:600;letter-spacing:-.02em;}
+.wa1{color:#2878d6}.wa2{color:#e0a800}
+.sb-badge{font-size:10px;background:var(--b50);color:var(--b600);border-radius:20px;padding:2px 7px;border:0.5px solid var(--b100);}
+.sb-nav{flex:1;padding:.75rem 0;}
+.sb-section{font-size:10px;font-weight:500;color:var(--ts);text-transform:uppercase;letter-spacing:.06em;padding:.5rem 1rem .25rem;}
+.sb-item{display:flex;align-items:center;gap:8px;padding:.625rem 1rem;font-size:13px;color:var(--ts);cursor:pointer;border-left:2px solid transparent;}
+.sb-item:hover{background:#edf6ff;color:#1558a0;}
+.sb-item.on{background:var(--g50);color:#2878d6;border-left-color:#2878d6;font-weight:500;}
+.sb-item svg{flex-shrink:0;}
+.sb-foot{padding:1rem;border-top:0.5px solid var(--cb1);}
+.sb-user{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ts);}
+.sb-av{width:28px;height:28px;border-radius:50%;background:var(--g100);display:flex;align-items:center;justify-content:center;font-size:14px;}
+
+/* メインエリア */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{background:#fff;border-bottom:0.5px solid var(--cb1);padding:.875rem 1.5rem;display:flex;align-items:center;justify-content:space-between;}
+.topbar-title{font-size:16px;font-weight:500;color:var(--t);}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.btn{padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;border:0.5px solid var(--cb1);background:var(--cbp);color:var(--t);font-family:var(--fs);}
+.btn:hover{background:var(--g50);}
+.btn.primary{background:#2878d6;color:#fff;border-color:#2878d6;}
+.btn.primary:hover{background:#1558a0;}
+.btn.danger{color:var(--r600);border-color:var(--r600);}
+.btn.danger:hover{background:var(--r50);}
+.content{flex:1;overflow-y:auto;padding:1.5rem;}
+
+/* タブコンテンツ */
+.tab-content{display:none;}
+.tab-content.on{display:block;}
+
+/* ダッシュボード */
+.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:1.5rem;}
+.stat-card{background:var(--cbp);border-radius:12px;border:0.5px solid var(--cb1);padding:1rem 1.25rem;}
+.stat-num{font-size:28px;font-weight:600;color:var(--t);line-height:1;}
+.stat-label{font-size:12px;color:var(--ts);margin-top:4px;}
+.stat-delta{font-size:11px;margin-top:6px;}
+.stat-delta.up{color:var(--g600);}
+.stat-delta.down{color:var(--r600);}
+.chart-row{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:1.5rem;}
+.card{background:var(--cbp);border-radius:12px;border:0.5px solid var(--cb1);padding:1.25rem;}
+.card-title{font-size:14px;font-weight:500;color:var(--t);margin-bottom:1rem;}
+.bar-chart{display:flex;flex-direction:column;gap:8px;}
+.bar-row{display:flex;align-items:center;gap:8px;font-size:12px;}
+.bar-label{width:60px;color:var(--ts);text-align:right;flex-shrink:0;}
+.bar-track{flex:1;height:8px;background:var(--g50);border-radius:4px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;background:var(--g600);}
+.bar-val{width:28px;color:var(--t);font-weight:500;}
+.donut-wrap{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;}
+.legend{display:flex;flex-direction:column;gap:6px;width:100%;}
+.legend-row{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ts);}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* テーブル共通 */
+.table-wrap{background:var(--cbp);border-radius:12px;border:0.5px solid var(--cb1);overflow:hidden;}
+.table-header{padding:.875rem 1.25rem;border-bottom:0.5px solid var(--cb1);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.search-box{display:flex;align-items:center;gap:6px;background:var(--cbs);border-radius:8px;padding:6px 10px;border:0.5px solid var(--cb1);flex:1;max-width:280px;}
+.search-box input{border:none;background:transparent;font-size:13px;color:var(--t);outline:none;width:100%;font-family:var(--fs);}
+table{width:100%;border-collapse:collapse;}
+th{font-size:11px;font-weight:500;color:var(--ts);text-align:left;padding:.625rem 1.25rem;border-bottom:0.5px solid var(--cb1);background:var(--cbs);text-transform:uppercase;letter-spacing:.04em;}
+td{font-size:13px;color:var(--t);padding:.75rem 1.25rem;border-bottom:0.5px solid var(--cb1);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--g50);}
+
+/* バッジ */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;}
+.badge.admin{background:var(--b50);color:var(--b600);}
+.badge.member{background:var(--g50);color:var(--g600);}
+.badge.open{background:var(--g50);color:var(--g600);}
+.badge.soon{background:var(--a50);color:var(--a800);}
+.badge.full{background:var(--cbs);color:var(--ts);}
+.badge.unused{background:var(--p50);color:var(--p600);}
+.badge.used{background:var(--cbs);color:var(--ts);}
+
+/* モーダル */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:100;align-items:center;justify-content:center;}
+.modal-overlay.on{display:flex;}
+.modal{background:var(--cbp);border-radius:16px;padding:1.5rem;width:480px;max-width:90vw;max-height:80vh;overflow-y:auto;}
+.modal-title{font-size:16px;font-weight:500;color:var(--t);margin-bottom:1.25rem;}
+.field{margin-bottom:12px;}
+.field label{font-size:12px;color:var(--ts);display:block;margin-bottom:4px;}
+.field input,.field select,.field textarea{width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);color:var(--t);font-size:13px;font-family:var(--fs);outline:none;}
+.field textarea{resize:vertical;min-height:80px;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--g600);background:#fff;}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem;}
+
+/* QRプレビュー */
+.qr-preview{background:var(--cbs);border-radius:12px;padding:1.5rem;text-align:center;margin-top:1rem;}
+.qr-box{width:140px;height:140px;background:#fff;margin:0 auto 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;border:0.5px solid var(--cb1);}
+.qr-event-name{font-size:14px;font-weight:500;color:var(--t);}
+.qr-pt{font-size:12px;color:var(--a400);margin-top:4px;}
+
+/* お知らせ */
+.notif-card{background:var(--cbp);border-radius:12px;border:0.5px solid var(--cb1);padding:1.25rem;margin-bottom:10px;}
+.notif-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;}
+.notif-title{font-size:14px;font-weight:500;color:var(--t);}
+.notif-meta{font-size:11px;color:var(--ts);margin-top:3px;}
+.notif-body{font-size:13px;color:var(--ts);line-height:1.6;}
+
+/* スイッチ */
+.switch{width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;}
+.switch.on{background:var(--g600)}.switch.off{background:var(--g100);}
+.switch-knob{position:absolute;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;}
+.switch.on .switch-knob{left:18px}.switch.off .switch-knob{left:2px;}
+
+.section-title{font-size:11px;font-weight:500;color:var(--ts);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem;}
+.info-box{background:var(--b50);border:0.5px solid var(--b100);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--b600);line-height:1.7;margin-bottom:1rem;}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- サイドバー -->
+<div class="sidebar">
+  <div class="sb-logo">
+    <svg width="40" height="28" viewBox="0 0 44 30"><circle cx="14" cy="15" r="12" fill="#85b7eb" opacity=".75"/><circle cx="30" cy="15" r="12" fill="#fde9a0" opacity=".85"/></svg>
+    <div>
+      <div class="sb-wm"><span class="wa1">Wa</span><span class="wa2">Wa</span></div>
+    </div>
+    <div class="sb-badge">役員</div>
+  </div>
+  <div style="padding:.625rem 1rem;border-bottom:0.5px solid var(--cb1);">
+    <a href="index.html" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ts);text-decoration:none;padding:5px 0;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      ユーザー画面に戻る
+    </a>
+  </div>
+  <div class="sb-nav">
+    <div class="sb-section">メイン</div>
+    <div class="sb-item on" onclick="nav('dashboard')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>ダッシュボード
+    </div>
+    <div class="sb-item" onclick="nav('users')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>ユーザー管理
+    </div>
+    <div class="sb-item" onclick="nav('volunteer')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>ボランティア管理
+    </div>
+    <div class="sb-item" onclick="nav('qr')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3"/><path d="M18 21h3"/><path d="M9 3h1v1H9z"/><path d="M14 8h1v1h-1z"/><path d="M9 8h1v5H9z"/><path d="M14 13h1v5h-1z"/></svg>QRコード発行
+    </div>
+    <div class="sb-section">特典</div>
+    <div class="sb-item" onclick="nav('novelty')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>ノベルティ設定
+    </div>
+    <div class="sb-item" onclick="nav('coupon')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg>クーポン管理
+    </div>
+    <div class="sb-item" onclick="nav('points')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>ポイント付与
+    </div>
+    <div class="sb-section">コミュニケーション</div>
+    <div class="sb-item" onclick="nav('calendar')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>カレンダー管理
+    </div>
+    <div class="sb-item" onclick="nav('notice')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>お知らせ管理
+    </div>
+    <div class="sb-item" onclick="nav('thanks')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>ありがとう管理
+    </div>
+  </div>
+  <div class="sb-foot">
+    <div class="sb-user">
+      <div class="sb-av">🌿</div>
+      <div><div style="font-weight:500;color:var(--t);">基洋さん</div><div style="font-size:10px;">PTA会長</div></div>
+    </div>
+  </div>
+
+<!-- メインエリア -->
+<div class="main">
+
+  <!-- トップバー -->
+  <div class="topbar">
+    <div class="topbar-title" id="page-title">ダッシュボード</div>
+    <div class="topbar-right">
+      <div style="font-size:12px;color:var(--ts);">南町小学校</div>
+      <button class="btn primary" id="top-action-btn" onclick="openModal('modal-notice')">＋ お知らせ投稿</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ダッシュボード -->
+    <div id="tab-dashboard" class="tab-content on">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-num">42</div>
+          <div class="stat-label">登録者数</div>
+          <div class="stat-delta up">↑ 先月比 +5名</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">18</div>
+          <div class="stat-label">今月参加者数</div>
+          <div class="stat-delta up">↑ 先月比 +3名</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">67</div>
+          <div class="stat-label">ありがとう送受信数</div>
+          <div class="stat-delta up">↑ 先月比 +12件</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">8</div>
+          <div class="stat-label">クーポン発行数</div>
+          <div class="stat-delta down">↓ 先月比 -2件</div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="card">
+          <div class="card-title">学年別参加者数</div>
+          <div class="bar-chart">
+            <div class="bar-row"><div class="bar-label">1年生</div><div class="bar-track"><div class="bar-fill" style="width:30%"></div></div><div class="bar-val">3名</div></div>
+            <div class="bar-row"><div class="bar-label">2年生</div><div class="bar-track"><div class="bar-fill" style="width:50%"></div></div><div class="bar-val">5名</div></div>
+            <div class="bar-row"><div class="bar-label">3年生</div><div class="bar-track"><div class="bar-fill" style="width:70%"></div></div><div class="bar-val">7名</div></div>
+            <div class="bar-row"><div class="bar-label">4年生</div><div class="bar-track"><div class="bar-fill" style="width:60%"></div></div><div class="bar-val">6名</div></div>
+            <div class="bar-row"><div class="bar-label">5年生</div><div class="bar-track"><div class="bar-fill" style="width:40%"></div></div><div class="bar-val">4名</div></div>
+            <div class="bar-row"><div class="bar-label">6年生</div><div class="bar-track"><div class="bar-fill" style="width:30%"></div></div><div class="bar-val">3名</div></div>
+            <div class="bar-row"><div class="bar-label">地域</div><div class="bar-track"><div class="bar-fill" style="width:30%;background:var(--b600)"></div></div><div class="bar-val">14名</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">ポイント獲得内訳</div>
+          <div class="donut-wrap">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="45" fill="none" stroke="#e8f5ee" stroke-width="18"/>
+              <circle cx="60" cy="60" r="45" fill="none" stroke="#2e9e6b" stroke-width="18" stroke-dasharray="169 113" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="45" fill="none" stroke="#fde9a0" stroke-width="18" stroke-dasharray="85 197" stroke-dashoffset="-169" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="45" fill="none" stroke="#d5ceff" stroke-width="18" stroke-dasharray="28 254" stroke-dashoffset="-254" transform="rotate(-90 60 60)"/>
+              <text x="60" y="56" text-anchor="middle" font-size="11" fill="#4a6a8a">合計</text>
+              <text x="60" y="70" text-anchor="middle" font-size="16" font-weight="600" fill="#0c2d54">282</text>
+            </svg>
+            <div class="legend">
+              <div class="legend-row"><div class="legend-dot" style="background:var(--g600)"></div>ボランティア参加 60%</div>
+              <div class="legend-row"><div class="legend-dot" style="background:var(--a100)"></div>ありがとう受信 30%</div>
+              <div class="legend-row"><div class="legend-dot" style="background:var(--p100)"></div>その他 10%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">最近の活動ログ</div>
+        <table>
+          <thead><tr><th>日時</th><th>ユーザー</th><th>アクション</th><th>詳細</th></tr></thead>
+          <tbody>
+            <tr><td>03/20 14:32</td><td>🌸 さくらさん</td><td>QR参加</td><td>入学式 会場設営 +3PT</td></tr>
+            <tr><td>03/20 11:15</td><td>🌻 ひまわりさん</td><td>ありがとう受信</td><td>よつばさんから +1PT</td></tr>
+            <tr><td>03/19 16:08</td><td>🍀 よつばさん</td><td>クーポン使用</td><td>NMC-0003 使用済み</td></tr>
+            <tr><td>03/19 10:22</td><td>🌊 なみさん</td><td>新規登録</td><td>地域ボランティア</td></tr>
+            <tr><td>03/18 09:44</td><td>🦉 ふくろうさん</td><td>QR参加</td><td>図書室 整理 +2PT</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ユーザー管理 -->
+    <div id="tab-users" class="tab-content">
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="search-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4a6a8a" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input placeholder="ニックネーム・メールで検索">
+          </div>
+          <div style="display:flex;gap:8px;">
+            <select style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option>全学年</option><option>1年生</option><option>2年生</option><option>3年生</option><option>4年生</option><option>5年生</option><option>6年生</option><option>地域</option>
+            </select>
+            <select style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option>全ロール</option><option>管理者</option><option>一般</option>
+            </select>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>ユーザー</th><th>学年</th><th>WaPT</th><th>参加回数</th><th>登録日</th><th>ロール</th><th>操作</th></tr></thead>
+          <tbody id="user-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ボランティア管理 -->
+    <div id="tab-volunteer" class="tab-content">
+      <div class="table-wrap">
+        <div class="table-header">
+          <div style="font-size:14px;font-weight:500;color:var(--t);">ボランティア一覧</div>
+          <button class="btn primary" onclick="openModal('modal-vol')">＋ 新規作成</button>
+        </div>
+        <table>
+          <thead><tr><th>活動名</th><th>日時</th><th>定員</th><th>参加者数</th><th>付与PT</th><th>状態</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr>
+              <td style="font-weight:500;">入学式 会場設営</td>
+              <td>4月3日（木）9:00〜11:00</td><td>8名</td><td>5名</td><td>+3 PT</td>
+              <td><span class="badge open">募集中</span></td>
+              <td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal('modal-vol')">編集</button></td>
+            </tr>
+            <tr>
+              <td style="font-weight:500;">図書室 読み聞かせ</td>
+              <td>毎月第2木曜 10:00〜</td><td>4名</td><td>4名</td><td>+2 PT</td>
+              <td><span class="badge full">定員満了</span></td>
+              <td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal('modal-vol')">編集</button></td>
+            </tr>
+            <tr>
+              <td style="font-weight:500;">登下校 見守りサポート</td>
+              <td>4月7日〜 週1回〜OK</td><td>10名</td><td>7名</td><td>+2 PT</td>
+              <td><span class="badge soon">締切間近</span></td>
+              <td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal('modal-vol')">編集</button></td>
+            </tr>
+            <tr>
+              <td style="font-weight:500;">バザー 運営サポート</td>
+              <td>5月24日（土）9:00〜15:00</td><td>12名</td><td>12名</td><td>+3 PT</td>
+              <td><span class="badge full">定員満了</span></td>
+              <td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal('modal-vol')">編集</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- QRコード発行 -->
+    <div id="tab-qr" class="tab-content">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card">
+          <div class="card-title">QRコードを発行する</div>
+          <div class="field"><label>活動名</label><input id="qr-name" placeholder="例：運動会 準備ボランティア"></div>
+          <div class="field"><label>日時</label><input id="qr-date" placeholder="例：2026年5月15日（金）9:00〜"></div>
+          <div class="field"><label>付与ポイント</label>
+            <select id="qr-pt" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="1">+1 PT</option><option value="2">+2 PT</option><option value="3" selected>+3 PT</option><option value="5">+5 PT</option>
+            </select>
+          </div>
+          <div class="field"><label>有効期限</label><input type="date" id="qr-expire"></div>
+          <button class="btn primary" style="width:100%;" onclick="genQR()">QRコードを発行する</button>
+        </div>
+        <div class="card">
+          <div class="card-title">発行済みQRコード</div>
+          <div id="qr-preview-area" style="text-align:center;padding:2rem 0;color:var(--ts);font-size:13px;">左のフォームから発行すると<br>ここに表示されます</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">発行履歴</div>
+        <table>
+          <thead><tr><th>活動名</th><th>付与PT</th><th>有効期限</th><th>スキャン数</th><th>発行日</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td style="font-weight:500;">運動会 準備ボランティア</td><td>+3 PT</td><td>2026/05/16</td><td>8回</td><td>2026/03/15</td><td><button class="btn" style="font-size:12px;padding:4px 10px;">再印刷</button></td></tr>
+            <tr><td style="font-weight:500;">図書室 整理ボランティア</td><td>+2 PT</td><td>2026/03/01</td><td>5回</td><td>2026/02/20</td><td><button class="btn" style="font-size:12px;padding:4px 10px;">再印刷</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ノベルティ設定 -->
+    <div id="tab-novelty" class="tab-content">
+      <div class="info-box">スタンプカード1枚（スタンプ5個＝25WaPT）コンプリートで自動発行されるクーポンの交換対象を設定します。</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card">
+          <div class="card-title">現在のノベルティ設定</div>
+          <div class="field"><label>ノベルティ名</label><input value="オリジナルトートバッグ"></div>
+          <div class="field"><label>説明（任意）</label><textarea placeholder="例：WaWaオリジナルデザインのエコバッグです">WaWaオリジナルデザインのエコバッグです</textarea></div>
+          <div class="field"><label>在庫数</label><input type="number" value="30"></div>
+          <div class="field"><label>クーポン有効期限（発行後）</label>
+            <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option>1ヶ月</option><option selected>3ヶ月</option><option>6ヶ月</option><option>1年</option>
+            </select>
+          </div>
+          <button class="btn primary" style="width:100%;" onclick="showSaved('novelty-saved')">保存する</button>
+          <div id="novelty-saved" style="display:none;margin-top:8px;padding:8px 12px;background:var(--g50);border-radius:8px;font-size:13px;color:var(--g600);">✓ 保存しました</div>
+        </div>
+        <div class="card">
+          <div class="card-title">ノベルティ交換履歴</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="background:var(--cbs);border-radius:8px;padding:10px 12px;font-size:13px;">
+              <div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">🌸 さくらさん</span><span style="color:var(--ts);">03/18</span></div>
+              <div style="color:var(--ts);margin-top:2px;">NMC-0000 → オリジナルトートバッグ</div>
+            </div>
+            <div style="background:var(--cbs);border-radius:8px;padding:10px 12px;font-size:13px;">
+              <div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">🌻 ひまわりさん</span><span style="color:var(--ts);">03/10</span></div>
+              <div style="color:var(--ts);margin-top:2px;">NMC-0001 → オリジナルトートバッグ</div>
+            </div>
+            <div style="background:var(--cbs);border-radius:8px;padding:10px 12px;font-size:13px;">
+              <div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">🍀 よつばさん</span><span style="color:var(--ts);">03/05</span></div>
+              <div style="color:var(--ts);margin-top:2px;">NMC-0002 → オリジナルトートバッグ</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- クーポン管理 -->
+    <div id="tab-coupon" class="tab-content">
+      <div class="stats-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+        <div class="stat-card"><div class="stat-num" id="adm-coup-total">8</div><div class="stat-label">発行済みクーポン</div></div>
+        <div class="stat-card"><div class="stat-num" id="adm-coup-unused">3</div><div class="stat-label">未使用</div></div>
+        <div class="stat-card"><div class="stat-num" id="adm-coup-used">5</div><div class="stat-label">使用済み</div></div>
+      </div>
+
+      <!-- 手動発行カード -->
+      <div class="card" style="margin-bottom:1.25rem;">
+        <div class="card-title">クーポンを手動発行する</div>
+        <div class="info-box" style="background:var(--b50);border:0.5px solid var(--b100);color:var(--b600);">スタンプカードとは独立して、任意のタイミングで特定のユーザーにクーポンを発行できます。</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:12px;color:var(--ts);margin-bottom:5px;">発行対象ユーザー</div>
+            <select id="manual-coup-user" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="">ユーザーを選択</option>
+              <option value="all">👥 全員</option>
+              <option value="sakura">🌸 さくらさん</option>
+              <option value="himawari">🌻 ひまわりさん</option>
+              <option value="yotsuba">🍀 よつばさん</option>
+              <option value="nami">🌊 なみさん</option>
+              <option value="fukurou">🦉 ふくろうさん</option>
+              <option value="hachi">🐝 はちみつさん</option>
+              <option value="tulip">🌷 チューリップさん</option>
+              <option value="kuma">🐻 くまさん</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--ts);margin-bottom:5px;">発行理由（種別）</div>
+            <select id="manual-coup-type" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="volunteer">ボランティア参加</option>
+              <option value="event">イベント限定</option>
+              <option value="register">アプリ登録のお礼</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:12px;color:var(--ts);margin-bottom:5px;">ノベルティ内容</div>
+            <input id="manual-coup-novelty" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);color:var(--t);font-size:13px;font-family:var(--fs);" value="オリジナルトートバッグ">
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--ts);margin-bottom:5px;">有効期限</div>
+            <select id="manual-coup-expire" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="1">1ヶ月</option>
+              <option value="3" selected>3ヶ月</option>
+              <option value="6">6ヶ月</option>
+              <option value="12">1年</option>
+              <option value="0">無期限</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="font-size:12px;color:var(--ts);margin-bottom:5px;">備考（ユーザーに表示されません）</div>
+          <input id="manual-coup-note" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);color:var(--t);font-size:13px;font-family:var(--fs);" placeholder="例：運動会準備を3回連続参加したお礼">
+        </div>
+        <button class="admin-btn" onclick="issueManualCoupon()">このユーザーにクーポンを発行する</button>
+        <div id="manual-coup-done" style="display:none;margin-top:8px;padding:9px 12px;background:var(--g50);border-radius:8px;font-size:13px;color:#2878d6;">✓ クーポンを発行しました</div>
+      </div>
+
+      <!-- 一覧 -->
+      <div class="table-wrap">
+        <div class="table-header">
+          <div style="font-size:14px;font-weight:500;">クーポン一覧</div>
+          <select id="adm-coup-filter" onchange="renderAdminCoupons()" style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+            <option value="all">全ステータス</option>
+            <option value="unused">未使用</option>
+            <option value="used">使用済み</option>
+            <option value="manual">手動発行のみ</option>
+          </select>
+        </div>
+        <table>
+          <thead><tr><th>コード</th><th>ユーザー</th><th>ノベルティ</th><th>種別</th><th>発行日</th><th>有効期限</th><th>状態</th><th>操作</th></tr></thead>
+          <tbody id="adm-coup-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+        </table>
+      </div>
+    </div>
+
+    <!-- ポイント付与 -->
+    <div id="tab-points" class="tab-content">
+      <div class="info-box">ユーザーを指定してWaPTを手動で付与・修正できます。マイナス付与は誤認修正用です。付与履歴はすべて記録されます。</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:1.5rem;">
+        <!-- 付与フォーム -->
+        <div class="card">
+          <div class="card-title">ポイントを付与する</div>
+          <div class="field">
+            <label>対象ユーザー</label>
+            <select id="pt-user" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="">ユーザーを選択</option>
+              <option value="sakura">🌸 さくらさん（現在 12 PT）</option>
+              <option value="himawari">🌻 ひまわりさん（現在 24 PT）</option>
+              <option value="yotsuba">🍀 よつばさん（現在 8 PT）</option>
+              <option value="nami">🌊 なみさん（現在 18 PT）</option>
+              <option value="fukurou">🦉 ふくろうさん（現在 15 PT）</option>
+              <option value="hachi">🐝 はちみつさん（現在 6 PT）</option>
+              <option value="tulip">🌷 チューリップさん（現在 9 PT）</option>
+              <option value="kuma">🐻 くまさん（現在 11 PT）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>付与ポイント</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+              <button class="pt-preset-btn" onclick="setPtVal(1)" style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;cursor:pointer;font-family:var(--fs);">+1</button>
+              <button class="pt-preset-btn" onclick="setPtVal(2)" style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;cursor:pointer;font-family:var(--fs);">+2</button>
+              <button class="pt-preset-btn" onclick="setPtVal(3)" style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;cursor:pointer;font-family:var(--fs);">+3</button>
+              <button class="pt-preset-btn" onclick="setPtVal(5)" style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;cursor:pointer;font-family:var(--fs);">+5</button>
+              <button class="pt-preset-btn" onclick="setPtVal(-1)" style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--r50);background:var(--r50);color:var(--r600);font-size:13px;cursor:pointer;font-family:var(--fs);">-1</button>
+              <button class="pt-preset-btn" onclick="setPtVal(-2)" style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--r50);background:var(--r50);color:var(--r600);font-size:13px;cursor:pointer;font-family:var(--fs);">-2</button>
+              <button class="pt-preset-btn" onclick="setPtVal(-3)" style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--r50);background:var(--r50);color:var(--r600);font-size:13px;cursor:pointer;font-family:var(--fs);">-3</button>
+            </div>
+            <input type="number" id="pt-val" placeholder="値を直接入力（マイナス可）" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+          </div>
+          <div class="field">
+            <label>付与理由</label>
+            <select id="pt-reason" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="volunteer">ボランティア参加</option>
+              <option value="thanks">ありがとう受信</option>
+              <option value="event">イベント参加</option>
+              <option value="fix">誤認修正</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>備考（任意）</label>
+            <input id="pt-note" placeholder="例：QR読み取り失敗のため手動付与" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+          </div>
+          <button class="admin-btn" onclick="grantPoints()" style="width:100%;">ポイントを付与する</button>
+          <div id="pt-done" style="display:none;margin-top:8px;padding:9px 12px;background:var(--g50);border-radius:8px;font-size:13px;color:#2878d6;"></div>
+          <div id="pt-error" style="display:none;margin-top:8px;padding:9px 12px;background:var(--r50);border-radius:8px;font-size:13px;color:var(--r600);"></div>
+        </div>
+
+        <!-- ユーザー別ポイント残高 -->
+        <div class="card">
+          <div class="card-title">ポイント残高一覧</div>
+          <div id="pt-balance-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+      </div>
+
+      <!-- 付与履歴 -->
+      <div class="table-wrap">
+        <div class="table-header">
+          <div style="font-size:14px;font-weight:500;">付与履歴</div>
+          <select onchange="filterPtLog(this.value)" style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+            <option value="all">全ユーザー</option>
+            <option value="sakura">🌸 さくらさん</option>
+            <option value="himawari">🌻 ひまわりさん</option>
+            <option value="yotsuba">🍀 よつばさん</option>
+            <option value="nami">🌊 なみさん</option>
+            <option value="fukurou">🦉 ふくろうさん</option>
+            <option value="hachi">🐝 はちみつさん</option>
+            <option value="tulip">🌷 チューリップさん</option>
+            <option value="kuma">🐻 くまさん</option>
+          </select>
+        </div>
+        <table>
+          <thead><tr><th>日時</th><th>ユーザー</th><th>付与PT</th><th>理由</th><th>備考</th><th>担当者</th></tr></thead>
+          <tbody id="pt-log-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- カレンダー管理 -->
+    <div id="tab-calendar" class="tab-content">
+      <div class="stats-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+        <div class="stat-card"><div class="stat-num">14</div><div class="stat-label">今月の予定数</div></div>
+        <div class="stat-card"><div class="stat-num">8</div><div class="stat-label">ボランティア予定</div></div>
+        <div class="stat-card"><div class="stat-num">6</div><div class="stat-label">お知らせ・行事</div></div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button onclick="adminCalMove(-1)" style="width:30px;height:30px;border-radius:50%;border:0.5px solid var(--cb1);background:var(--cbp);font-size:15px;cursor:pointer;">‹</button>
+          <div id="admin-cal-label" style="font-size:14px;font-weight:500;color:var(--t);min-width:80px;text-align:center;"></div>
+          <button onclick="adminCalMove(1)" style="width:30px;height:30px;border-radius:50%;border:0.5px solid var(--cb1);background:var(--cbp);font-size:15px;cursor:pointer;">›</button>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <select id="admin-cal-filter" onchange="renderAdminCal()" style="padding:5px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+            <option value="all">すべて</option>
+            <option value="vol">ボランティア</option>
+            <option value="info">お知らせ・行事</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>日付</th><th>種別</th><th>タイトル</th><th>時間</th><th>付与PT</th><th>操作</th></tr></thead>
+          <tbody id="admin-cal-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ありがとう管理 -->
+    <div id="tab-thanks" class="tab-content">
+      <div class="stats-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+        <div class="stat-card"><div class="stat-num" id="thanks-total">67</div><div class="stat-label">累計送受信数</div></div>
+        <div class="stat-card"><div class="stat-num" id="thanks-month">23</div><div class="stat-label">今月の送受信数</div></div>
+        <div class="stat-card"><div class="stat-num" id="thanks-deleted">2</div><div class="stat-label">削除済み</div></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="search-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4a6a8a" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input placeholder="ニックネーム・メッセージで検索" oninput="filterThanks(this.value)">
+          </div>
+          <select onchange="filterThanksStatus(this.value)" style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+            <option value="all">すべて</option>
+            <option value="active">公開中</option>
+            <option value="deleted">削除済み</option>
+          </select>
+        </div>
+        <table>
+          <thead><tr><th>送信者</th><th>受信者</th><th>メッセージ</th><th>日時</th><th>状態</th><th>操作</th></tr></thead>
+          <tbody id="thanks-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- お知らせ管理 -->
+    <div id="tab-notice" class="tab-content">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+            <div class="section-title">投稿済みのお知らせ</div>
+          </div>
+          <div class="notif-card">
+            <div class="notif-header">
+              <div><div class="notif-title">入学式 会場設営の募集を開始しました</div><div class="notif-meta">2026/03/20 · 全員向け</div></div>
+              <span class="badge open">公開中</span>
+            </div>
+            <div class="notif-body">4月3日（木）の入学式に向けて、会場設営ボランティアを募集します。参加で +3 WaPT付与！</div>
+            <div style="display:flex;gap:6px;margin-top:10px;">
+              <button class="btn" style="font-size:12px;padding:4px 10px;">編集</button>
+              <button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="if(confirm('このお知らせを削除しますか？')){this.closest('.notif-card').style.opacity='.4';this.textContent='削除済み';this.disabled=true;}">削除</button>
+            </div>
+          </div>
+          <div class="notif-card">
+            <div class="notif-header">
+              <div><div class="notif-title">3月の活動報告</div><div class="notif-meta">2026/03/05 · 全員向け</div></div>
+              <span class="badge open">公開中</span>
+            </div>
+            <div class="notif-body">今月は18名の保護者・地域の方にボランティア参加いただきました。ありがとうございました！</div>
+            <div style="display:flex;gap:6px;margin-top:10px;">
+              <button class="btn" style="font-size:12px;padding:4px 10px;">編集</button>
+              <button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="if(confirm('このお知らせを削除しますか？')){this.closest('.notif-card').style.opacity='.4';this.textContent='削除済み';this.disabled=true;}">削除</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">新しいお知らせを投稿</div>
+          <div class="field"><label>タイトル</label><input placeholder="例：バザーボランティア募集のお知らせ"></div>
+          <div class="field"><label>本文</label><textarea rows="4" placeholder="お知らせの内容を入力してください"></textarea></div>
+          <div class="field"><label>送信対象</label>
+            <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option>全員</option><option>保護者のみ</option><option>地域ボランティアのみ</option><option>管理者のみ</option>
+            </select>
+          </div>
+          <div class="field"><label>プッシュ通知も送る</label>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <div class="switch on" onclick="this.classList.toggle('on');this.classList.toggle('off');"><div class="switch-knob"></div></div>
+              <span style="font-size:13px;color:var(--ts);">アプリに通知を送信する</span>
+            </div>
+          </div>
+          <button class="btn primary" style="width:100%;" onclick="showSaved('notice-saved')">投稿する</button>
+          <div id="notice-saved" style="display:none;margin-top:8px;padding:8px 12px;background:var(--g50);border-radius:8px;font-size:13px;color:var(--g600);">✓ 投稿しました</div>
+        </div>
+      </div>
+    </div>
+
+<!-- モーダル：ボランティア登録 -->
+<div class="modal-overlay" id="modal-vol">
+  <div class="modal">
+    <div class="modal-title">ボランティア活動を登録・編集</div>
+    <div class="field"><label>活動名</label><input placeholder="例：運動会 準備ボランティア" value="入学式 会場設営"></div>
+    <div class="field"><label>日時</label><input placeholder="例：4月3日（木）9:00〜11:00" value="4月3日（木）9:00〜11:00"></div>
+    <div class="field"><label>定員</label><input type="number" value="8"></div>
+    <div class="field"><label>付与ポイント</label>
+      <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+        <option>+1 PT</option><option>+2 PT</option><option selected>+3 PT</option><option>+5 PT</option>
+      </select>
+    </div>
+    <div class="field"><label>募集状態</label>
+      <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+        <option selected>募集中</option><option>締切間近</option><option>定員満了</option><option>非公開</option>
+      </select>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('modal-vol')">キャンセル</button>
+      <button class="btn danger" onclick="if(confirm('このボランティア活動を削除しますか？'))closeModal('modal-vol')">削除</button>
+      <button class="btn primary" onclick="closeModal('modal-vol')">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル：お知らせ投稿 -->
+<div class="modal-overlay" id="modal-notice">
+  <div class="modal">
+    <div class="modal-title">お知らせを投稿する</div>
+    <div class="field"><label>タイトル</label><input placeholder="例：バザーボランティア募集のお知らせ"></div>
+    <div class="field"><label>本文</label><textarea rows="4" placeholder="お知らせの内容を入力してください"></textarea></div>
+    <div class="field"><label>送信対象</label>
+      <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+        <option>全員</option><option>保護者のみ</option><option>地域ボランティアのみ</option>
+      </select>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('modal-notice')">キャンセル</button>
+      <button class="btn primary" onclick="closeModal('modal-notice')">投稿する</button>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル：カレンダー予定追加 -->
+<div class="modal-overlay" id="modal-calendar">
+  <div class="modal">
+    <div class="modal-title">予定を追加・編集</div>
+    <div class="field"><label>種別</label>
+      <select id="cal-type-select" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+        <option value="vol">ボランティア募集</option>
+        <option value="info">お知らせ・行事</option>
+      </select>
+    </div>
+    <div class="field"><label>タイトル</label><input id="cal-title-input" placeholder="例：入学式 会場設営"></div>
+    <div class="field"><label>日付</label><input type="date" id="cal-date-input"></div>
+    <div class="field"><label>時間（任意）</label><input id="cal-time-input" placeholder="例：9:00〜11:00"></div>
+    <div class="field" id="cal-pt-field"><label>付与ポイント</label>
+      <select id="cal-pt-select" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+        <option>+1 PT</option><option>+2 PT</option><option selected>+3 PT</option><option>+5 PT</option>
+      </select>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('modal-calendar')">キャンセル</button>
+      <button class="btn primary" onclick="saveCalEvent()">追加する</button>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル：ロール変更 -->
+<div class="modal-overlay" id="modal-role">
+  <div class="modal">
+    <div class="modal-title">ロールを変更する</div>
+    <div style="background:var(--cbs);border-radius:10px;padding:1rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:24px;" id="modal-role-emoji">🌸</div>
+      <div><div style="font-size:14px;font-weight:500;" id="modal-role-name">さくらさん</div><div style="font-size:12px;color:var(--ts);" id="modal-role-email">sakura@example.com</div></div>
+    </div>
+    <div class="field"><label>ロール</label>
+      <select id="modal-role-select" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+        <option value="member">一般（member）</option>
+        <option value="admin">管理者（admin）</option>
+      </select>
+    </div>
+    <div style="background:var(--a50);border:0.5px solid var(--a100);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--a800);line-height:1.7;">管理者にすると、この管理画面へのアクセスとすべての設定変更が可能になります。</div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('modal-role')">キャンセル</button>
+      <button class="btn primary" onclick="saveRole()">変更を保存する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const users=[
+  {e:'🌿',n:'基洋さん',email:'yoshida@pta.jp',grade:'役員',pt:48,vol:12,date:'2026/01/10',role:'admin'},
+  {e:'🌸',n:'さくらさん',email:'sakura@example.com',grade:'3年生・5年生',pt:12,vol:5,date:'2026/01/15',role:'member'},
+  {e:'🌻',n:'ひまわりさん',email:'himawari@example.com',grade:'2年生・4年生',pt:24,vol:8,date:'2026/01/18',role:'member'},
+  {e:'🍀',n:'よつばさん',email:'yotsuba@example.com',grade:'1年生',pt:8,vol:3,date:'2026/02/01',role:'member'},
+  {e:'🌊',n:'なみさん',email:'nami@example.com',grade:'地域',pt:18,vol:7,date:'2026/02/10',role:'member'},
+  {e:'🦉',n:'ふくろうさん',email:'fukurou@example.com',grade:'3年生・6年生',pt:15,vol:6,date:'2026/02/15',role:'member'},
+  {e:'🐝',n:'はちみつさん',email:'hachi@example.com',grade:'5年生',pt:6,vol:2,date:'2026/03/01',role:'member'},
+  {e:'🌷',n:'チューリップさん',email:'tulip@example.com',grade:'2年生・3年生',pt:9,vol:4,date:'2026/03/05',role:'member'},
+];
+let currentRoleUser=null;
+
+const tabs={
+  dashboard:{title:'ダッシュボード',action:'＋ お知らせ投稿',actionFn:"openModal('modal-notice')"},
+  users:{title:'ユーザー管理',action:'CSVエクスポート',actionFn:''},
+  volunteer:{title:'ボランティア管理',action:'＋ 新規作成',actionFn:"openModal('modal-vol')"},
+  qr:{title:'QRコード発行',action:'',actionFn:''},
+  novelty:{title:'ノベルティ設定',action:'',actionFn:''},
+  coupon:{title:'クーポン管理',action:'CSVエクスポート',actionFn:''},
+  points:{title:'ポイント付与',action:'',actionFn:''},
+  calendar:{title:'カレンダー管理',action:'＋ 予定を追加',actionFn:"openModal('modal-calendar')"},
+  notice:{title:'お知らせ管理',action:'＋ お知らせ投稿',actionFn:"openModal('modal-notice')"},
+  thanks:{title:'ありがとう管理',action:'',actionFn:''},
+};
+
+function nav(name){
+  document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('on'));
+  event.currentTarget.classList.add('on');
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('on'));
+  document.getElementById('tab-'+name).classList.add('on');
+  document.getElementById('page-title').textContent=tabs[name].title;
+  const btn=document.getElementById('top-action-btn');
+  if(tabs[name].action){btn.style.display='';btn.textContent=tabs[name].action;btn.setAttribute('onclick',tabs[name].actionFn);}
+  else btn.style.display='none';
+}
+
+function renderUsers(){
+  const tb=document.getElementById('user-table-body');tb.innerHTML='';
+  users.forEach((u,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:8px;"><div style="font-size:18px;">${u.e}</div><div><div style="font-weight:500;">${u.n}</div><div style="font-size:11px;color:var(--ts);">${u.email}</div></div></div></td>`+
+      `<td>${u.grade}</td><td style="font-weight:500;">${u.pt} PT</td><td>${u.vol}回</td><td>${u.date}</td>`+
+      `<td><span class="badge ${u.role}">${u.role==='admin'?'管理者':'一般'}</span></td>`+
+      `<td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openRoleModal(${i})">ロール変更</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function openRoleModal(i){
+  currentRoleUser=i;
+  const u=users[i];
+  document.getElementById('modal-role-emoji').textContent=u.e;
+  document.getElementById('modal-role-name').textContent=u.n;
+  document.getElementById('modal-role-email').textContent=u.email;
+  document.getElementById('modal-role-select').value=u.role;
+  openModal('modal-role');
+}
+
+function saveRole(){
+  if(currentRoleUser===null)return;
+  users[currentRoleUser].role=document.getElementById('modal-role-select').value;
+  renderUsers();
+  closeModal('modal-role');
+}
+
+function openModal(id){document.getElementById(id).classList.add('on');}
+function closeModal(id){document.getElementById(id).classList.remove('on');}
+
+function genQR(){
+  const name=document.getElementById('qr-name').value||'活動名未入力';
+  const pt=document.getElementById('qr-pt').value;
+  const area=document.getElementById('qr-preview-area');
+  area.innerHTML=`<div style="background:var(--cbs);border-radius:12px;padding:1.5rem;text-align:center;">
+    <svg width="140" height="140" viewBox="0 0 72 72" style="display:block;margin:0 auto 12px;">
+      <rect width="72" height="72" fill="white"/>
+      <rect x="4" y="4" width="24" height="24" fill="none" stroke="#2e9e6b" stroke-width="2"/>
+      <rect x="8" y="8" width="16" height="16" fill="#2e9e6b"/>
+      <rect x="44" y="4" width="24" height="24" fill="none" stroke="#2e9e6b" stroke-width="2"/>
+      <rect x="48" y="8" width="16" height="16" fill="#2e9e6b"/>
+      <rect x="4" y="44" width="24" height="24" fill="none" stroke="#2e9e6b" stroke-width="2"/>
+      <rect x="8" y="48" width="16" height="16" fill="#2e9e6b"/>
+      <rect x="44" y="44" width="6" height="6" fill="#2e9e6b"/><rect x="54" y="44" width="6" height="6" fill="#2e9e6b"/>
+      <rect x="44" y="54" width="6" height="6" fill="#2e9e6b"/><rect x="54" y="54" width="14" height="6" fill="#2e9e6b"/>
+      <rect x="44" y="62" width="14" height="6" fill="#2e9e6b"/>
+    </svg>
+    <div style="font-size:14px;font-weight:500;color:var(--t);">${name}</div>
+    <div style="font-size:12px;color:var(--a400);margin-top:4px;">参加で +${pt} WaPT</div>
+    <button class="btn primary" style="margin-top:12px;" onclick="alert('印刷ダイアログを開きます')">印刷する</button>
+  </div>`;
+}
+
+function markUsed(btn){
+  const td=btn.parentElement;
+  const statusTd=td.previousElementSibling;
+  statusTd.innerHTML='<span class="badge used">使用済み</span>';
+  btn.parentElement.innerHTML='—';
+}
+
+function showSaved(id){
+  const el=document.getElementById(id);
+  el.style.display='block';
+  setTimeout(()=>el.style.display='none',2500);
+}
+
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('on');});
+});
+
+renderUsers();
+
+const thanksData=[
+  {id:1,from:'🌸 さくらさん',to:'🌻 ひまわりさん',msg:'運動会の準備を丁寧に手伝ってくださってありがとうございました！子どもたちも喜んでいました。',date:'2026/03/20',status:'active'},
+  {id:2,from:'🍀 よつばさん',to:'🌊 なみさん',msg:'図書室の整理、毎回本当にお疲れ様です。子どもたちが本を探しやすくなりました。',date:'2026/03/18',status:'active'},
+  {id:3,from:'🦉 ふくろうさん',to:'🌸 さくらさん',msg:'見守りボランティア、雨の日も続けてくださってありがとうございます。',date:'2026/03/15',status:'active'},
+  {id:4,from:'🐝 はちみつさん',to:'🍀 よつばさん',msg:'入学式の準備、本当にありがとうございました！おかげでスムーズに進みました。',date:'2026/03/10',status:'active'},
+  {id:5,from:'🌷 チューリップさん',to:'🦉 ふくろうさん',msg:'読み聞かせボランティアいつもありがとうございます。子どもが楽しみにしています！',date:'2026/03/08',status:'active'},
+  {id:6,from:'🐻 くまさん',to:'🐝 はちみつさん',msg:'バザーの運営、本当にお疲れ様でした。大盛況でしたね！',date:'2026/03/05',status:'deleted'},
+  {id:7,from:'🌊 なみさん',to:'🌷 チューリップさん',msg:'花壇整備いつもきれいにしてくださってありがとうございます。',date:'2026/03/01',status:'active'},
+];
+let thanksFilter='all', thanksSearch='';
+
+function renderThanks(){
+  const tbody=document.getElementById('thanks-table-body');
+  if(!tbody) return;
+  const filtered=thanksData.filter(t=>{
+    if(thanksFilter==='active'&&t.status!=='active') return false;
+    if(thanksFilter==='deleted'&&t.status!=='deleted') return false;
+    if(thanksSearch&&!t.from.includes(thanksSearch)&&!t.to.includes(thanksSearch)&&!t.msg.includes(thanksSearch)) return false;
+    return true;
+  });
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1.5rem;">該当するメッセージがありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML=filtered.map(t=>{
+    const isDeleted=t.status==='deleted';
+    const statusBadge=isDeleted?
+      '<span class="badge" style="background:var(--cbs);color:var(--ts);">削除済み</span>':
+      '<span class="badge open">公開中</span>';
+    const actionBtn=isDeleted?
+      '<button class="btn" style="font-size:12px;padding:4px 10px;" onclick="restoreThanks('+t.id+')">復元</button>':
+      '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="deleteThanks('+t.id+')">削除</button>';
+    return '<tr style="'+(isDeleted?'opacity:.5;':'')+'">'+
+      '<td style="font-weight:500;">'+t.from+'</td>'+
+      '<td>'+t.to+'</td>'+
+      '<td style="max-width:240px;"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ts);">'+t.msg+'</div></td>'+
+      '<td style="color:var(--ts);">'+t.date+'</td>'+
+      '<td>'+statusBadge+'</td>'+
+      '<td>'+actionBtn+'</td>'+
+      '</tr>';
+  }).join('');
+}
+
+function deleteThanks(id){
+  if(!confirm('このメッセージを削除しますか？\n削除するとユーザー画面から非表示になります。')) return;
+  const t=thanksData.find(x=>x.id===id);
+  if(t){
+    t.status='deleted';
+    document.getElementById('thanks-deleted').textContent=parseInt(document.getElementById('thanks-deleted').textContent)+1;
+    renderThanks();
+  }
+}
+
+function restoreThanks(id){
+  if(!confirm('このメッセージを復元しますか？')) return;
+  const t=thanksData.find(x=>x.id===id);
+  if(t){
+    t.status='active';
+    const el=document.getElementById('thanks-deleted');
+    el.textContent=Math.max(0,parseInt(el.textContent)-1);
+    renderThanks();
+  }
+}
+
+function filterThanks(val){thanksSearch=val;renderThanks();}
+function filterThanksStatus(val){thanksFilter=val;renderThanks();}
+
+let adminCalYear=2026, adminCalMonth=4;
+const adminCalEvents=[
+  {date:'2026-04-03',type:'vol',title:'入学式 会場設営',time:'9:00〜11:00',pt:'+3 PT'},
+  {date:'2026-04-07',type:'vol',title:'登下校 見守りサポート',time:'週1回〜OK',pt:'+2 PT'},
+  {date:'2026-04-10',type:'info',title:'1年生歓迎行事',time:'10:00〜12:00',pt:''},
+  {date:'2026-04-10',type:'vol',title:'図書室 読み聞かせ',time:'10:00〜11:30',pt:'+2 PT'},
+  {date:'2026-04-15',type:'info',title:'PTA役員会',time:'19:00〜20:30',pt:''},
+  {date:'2026-04-20',type:'info',title:'授業参観・懇談会',time:'13:30〜16:00',pt:''},
+  {date:'2026-04-24',type:'vol',title:'花壇整備ボランティア',time:'9:00〜10:30',pt:'+2 PT'},
+  {date:'2026-05-10',type:'vol',title:'図書室 読み聞かせ',time:'10:00〜11:30',pt:'+2 PT'},
+  {date:'2026-05-15',type:'info',title:'PTA役員会',time:'19:00〜20:30',pt:''},
+  {date:'2026-05-24',type:'vol',title:'バザー 運営サポート',time:'9:00〜15:00',pt:'+3 PT'},
+  {date:'2026-06-04',type:'vol',title:'運動会 準備ボランティア',time:'15:00〜17:00',pt:'+3 PT'},
+  {date:'2026-06-05',type:'info',title:'運動会',time:'8:30〜15:00',pt:''},
+];
+
+function adminCalMove(d){
+  adminCalMonth+=d;
+  if(adminCalMonth>12){adminCalMonth=1;adminCalYear++;}
+  if(adminCalMonth<1){adminCalMonth=12;adminCalYear--;}
+  renderAdminCal();
+}
+
+function renderAdminCal(){
+  const label=document.getElementById('admin-cal-label');
+  if(label) label.textContent=adminCalYear+'年'+adminCalMonth+'月';
+  const tbody=document.getElementById('admin-cal-table');
+  if(!tbody) return;
+  const filterEl=document.getElementById('admin-cal-filter');
+  const filter=filterEl?filterEl.value:'all';
+  const filtered=adminCalEvents.filter(e=>{
+    const [y,m]=e.date.split('-').map(Number);
+    return y===adminCalYear&&m===adminCalMonth&&(filter==='all'||e.type===filter);
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1.5rem;">この月の予定はありません</td></tr>';
+    return;
+  }
+  const days=['日','月','火','水','木','金','土'];
+  tbody.innerHTML=filtered.map(e=>{
+    const d=new Date(e.date+'T00:00:00');
+    const dow=days[d.getDay()];
+    const badge=e.type==='vol'?
+      '<span class="badge open">ボランティア</span>':
+      '<span class="badge" style="background:var(--a50);color:var(--a800);">お知らせ・行事</span>';
+    return '<tr><td style="font-weight:500;">'+adminCalMonth+'/'+d.getDate()+'（'+dow+'）</td>'+
+      '<td>'+badge+'</td><td>'+e.title+'</td>'+
+      '<td style="color:var(--ts);">'+(e.time||'—')+'</td>'+
+      '<td style="color:var(--a400);font-weight:500;">'+(e.pt||'—')+'</td>'+
+      '<td><div style="display:flex;gap:6px;">'+
+      '<button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal(\'modal-calendar\')">編集</button>'+
+      '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="if(confirm(\'この予定を削除しますか？\')){this.closest(\'tr\').style.opacity=\'.4\';this.textContent=\'削除済み\';this.disabled=true;}">削除</button>'+
+      '</div></td></tr>';
+  }).join('');
+}
+
+function saveCalEvent(){
+  const title=document.getElementById('cal-title-input').value||'新しい予定';
+  const date=document.getElementById('cal-date-input').value||(adminCalYear+'-'+String(adminCalMonth).padStart(2,'0')+'-01');
+  const type=document.getElementById('cal-type-select').value;
+  const time=document.getElementById('cal-time-input').value;
+  const ptEl=document.getElementById('cal-pt-select');
+  const pt=type==='vol'&&ptEl?ptEl.value:'';
+  adminCalEvents.push({date,type,title,time,pt});
+  closeModal('modal-calendar');
+  renderAdminCal();
+}
+
+const ptUsers={
+  sakura:{label:'🌸 さくらさん',pt:12},
+  himawari:{label:'🌻 ひまわりさん',pt:24},
+  yotsuba:{label:'🍀 よつばさん',pt:8},
+  nami:{label:'🌊 なみさん',pt:18},
+  fukurou:{label:'🦉 ふくろうさん',pt:15},
+  hachi:{label:'🐝 はちみつさん',pt:6},
+  tulip:{label:'🌷 チューリップさん',pt:9},
+  kuma:{label:'🐻 くまさん',pt:11},
+};
+const ptReasonLabels={volunteer:'ボランティア参加',thanks:'ありがとう受信',event:'イベント参加',fix:'誤認修正',other:'その他'};
+const ptLog=[
+  {date:'2026/03/20',userKey:'sakura',pt:3,reason:'volunteer',note:'入学式 会場設営',by:'基洋さん'},
+  {date:'2026/03/15',userKey:'himawari',pt:2,reason:'volunteer',note:'図書室 整理',by:'基洋さん'},
+  {date:'2026/03/10',userKey:'yotsuba',pt:-1,reason:'fix',note:'QR二重読み取り修正',by:'基洋さん'},
+];
+let ptLogFilter='all';
+
+function setPtVal(v){
+  document.getElementById('pt-val').value=v;
+}
+
+function grantPoints(){
+  const userKey=document.getElementById('pt-user').value;
+  const val=parseInt(document.getElementById('pt-val').value);
+  const reason=document.getElementById('pt-reason').value;
+  const note=document.getElementById('pt-note').value;
+  const done=document.getElementById('pt-done');
+  const err=document.getElementById('pt-error');
+  done.style.display='none';err.style.display='none';
+
+  if(!userKey){err.textContent='ユーザーを選択してください';err.style.display='block';return;}
+  if(!val||isNaN(val)){err.textContent='付与ポイントを入力してください';err.style.display='block';return;}
+  if(ptUsers[userKey].pt+val<0&&!confirm('付与後のポイントがマイナスになります。続けますか？'))return;
+
+  ptUsers[userKey].pt+=val;
+  const now=new Date();
+  const dateStr=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
+  ptLog.unshift({date:dateStr,userKey,pt:val,reason,note,by:'基洋さん'});
+
+  renderPtBalance();
+  renderPtLog();
+
+  const sign=val>0?'+':'';
+  done.textContent='✓ '+ptUsers[userKey].label+' に '+sign+val+' WaPT を付与しました（残高：'+ptUsers[userKey].pt+' PT）';
+  done.style.display='block';
+  setTimeout(()=>done.style.display='none',4000);
+
+  document.getElementById('pt-val').value='';
+  document.getElementById('pt-note').value='';
+
+  // ユーザー選択の残高表示を更新
+  const sel=document.getElementById('pt-user');
+  Array.from(sel.options).forEach(opt=>{
+    if(opt.value&&ptUsers[opt.value]){
+      opt.text=ptUsers[opt.value].label+'（現在 '+ptUsers[opt.value].pt+' PT）';
+    }
+  });
+}
+
+function renderPtBalance(){
+  const el=document.getElementById('pt-balance-list');
+  if(!el)return;
+  el.innerHTML=Object.entries(ptUsers).map(([k,u])=>{
+    const pct=Math.min(100,Math.round(u.pt/50*100));
+    return '<div style="display:flex;align-items:center;gap:10px;">'+
+      '<div style="font-size:14px;width:28px;">'+u.label.split(' ')[0]+'</div>'+
+      '<div style="flex:1;">'+
+        '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">'+
+          '<span style="color:var(--t);">'+u.label.split(' ')[1]+'</span>'+
+          '<span style="font-weight:500;color:'+(u.pt<0?'var(--r600)':'var(--a400)')+';">'+u.pt+' PT</span>'+
+        '</div>'+
+        '<div style="height:6px;background:var(--cbs);border-radius:3px;overflow:hidden;">'+
+          '<div style="height:100%;width:'+pct+'%;background:'+(u.pt<0?'var(--r600)':'var(--g600)')+';;border-radius:3px;"></div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function renderPtLog(){
+  const tbody=document.getElementById('pt-log-tbody');
+  if(!tbody)return;
+  const filtered=ptLogFilter==='all'?ptLog:ptLog.filter(l=>l.userKey===ptLogFilter);
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1.5rem;">履歴がありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML=filtered.map(l=>{
+    const sign=l.pt>0?'+':'';
+    const color=l.pt>0?'var(--a400)':'var(--r600)';
+    return '<tr>'+
+      '<td style="color:var(--ts);">'+l.date+'</td>'+
+      '<td style="font-weight:500;">'+ptUsers[l.userKey].label+'</td>'+
+      '<td style="font-weight:500;color:'+color+';">'+sign+l.pt+' WaPT</td>'+
+      '<td><span class="badge '+(l.pt<0?'':'open')+'" style="'+(l.pt<0?'background:var(--r50);color:var(--r600);':'')+'">'+ptReasonLabels[l.reason]+'</span></td>'+
+      '<td style="color:var(--ts);">'+(l.note||'—')+'</td>'+
+      '<td style="color:var(--ts);">'+l.by+'</td>'+
+      '</tr>';
+  }).join('');
+}
+
+function filterPtLog(val){ptLogFilter=val;renderPtLog();}
+
+renderPtBalance();
+renderPtLog();
+let manualCoupSeq=100;
+const typeLabels={volunteer:'ボランティア参加',event:'イベント限定',register:'登録お礼',other:'その他'};
+const userLabels={sakura:'🌸 さくらさん',himawari:'🌻 ひまわりさん',yotsuba:'🍀 よつばさん',nami:'🌊 なみさん',fukurou:'🦉 ふくろうさん',hachi:'🐝 はちみつさん',tulip:'🌷 チューリップさん',kuma:'🐻 くまさん'};
+const adminCoupons=[
+  {code:'NMC-0007',user:'🌸 さくらさん',novelty:'トートバッグ',type:'stamp',issued:'2026/03/20',expires:'2026/06/20',status:'unused'},
+  {code:'NMC-0006',user:'🌻 ひまわりさん',novelty:'トートバッグ',type:'stamp',issued:'2026/03/15',expires:'2026/06/15',status:'unused'},
+  {code:'NMC-0005',user:'🍀 よつばさん',novelty:'トートバッグ',type:'stamp',issued:'2026/03/10',expires:'2026/06/10',status:'unused'},
+  {code:'NMC-0004',user:'🌊 なみさん',novelty:'トートバッグ',type:'stamp',issued:'2026/03/01',expires:'2026/06/01',status:'used'},
+  {code:'NMC-0003',user:'🦉 ふくろうさん',novelty:'トートバッグ',type:'stamp',issued:'2026/02/20',expires:'2026/05/20',status:'used'},
+];
+
+function issueManualCoupon(){
+  const userKey=document.getElementById('manual-coup-user').value;
+  if(!userKey){alert('ユーザーを選択してください');return;}
+  const type=document.getElementById('manual-coup-type').value;
+  const novelty=document.getElementById('manual-coup-novelty').value||'ノベルティ';
+  const months=parseInt(document.getElementById('manual-coup-expire').value);
+  const today=new Date();
+  const fmt=d=>d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
+  const expires=months===0?'無期限':fmt(new Date(today).setMonth(today.getMonth()+months)&&new Date(new Date(today).setMonth(today.getMonth()+months)));
+
+  const targetUsers=userKey==='all'?Object.keys(userLabels):[userKey];
+  targetUsers.forEach(uk=>{
+    const code='MNL-'+String(manualCoupSeq++).padStart(4,'0');
+    adminCoupons.unshift({code,user:userLabels[uk],novelty,type,issued:fmt(today),expires:months===0?'無期限':fmt(new Date(new Date(today).setMonth(today.getMonth()+months))),status:'unused'});
+  });
+  renderAdminCoupons();
+  const done=document.getElementById('manual-coup-done');
+  done.textContent='✓ '+(userKey==='all'?'全員（'+targetUsers.length+'名）':userLabels[userKey])+' にクーポンを発行しました';
+  done.style.display='block';
+  setTimeout(()=>done.style.display='none',3000);
+}
+
+function renderAdminCoupons(){
+  const tbody=document.getElementById('adm-coup-tbody');
+  if(!tbody) return;
+  const filter=document.getElementById('adm-coup-filter')?.value||'all';
+  const filtered=adminCoupons.filter(c=>{
+    if(filter==='unused') return c.status==='unused';
+    if(filter==='used') return c.status==='used';
+    if(filter==='manual') return c.type!=='stamp';
+    return true;
+  });
+  const unused=adminCoupons.filter(c=>c.status==='unused').length;
+  const used=adminCoupons.filter(c=>c.status==='used').length;
+  const total=adminCoupons.length;
+  const te=document.getElementById('adm-coup-total');
+  const ue=document.getElementById('adm-coup-unused');
+  const de=document.getElementById('adm-coup-used');
+  if(te) te.textContent=total;
+  if(ue) ue.textContent=unused;
+  if(de) de.textContent=used;
+  const isManual=c=>c.type!=='stamp';
+  tbody.innerHTML=filtered.map(c=>{
+    const typeBadge=isManual(c)?
+      '<span class="badge" style="background:var(--b50);color:var(--b600);">'+(typeLabels[c.type]||c.type)+'</span>':
+      '<span class="badge" style="background:var(--g50);color:#2878d6;">スタンプ</span>';
+    const statusBadge=c.status==='unused'?
+      '<span class="badge unused">未使用</span>':
+      '<span class="badge used">使用済み</span>';
+    const action=c.status==='unused'?
+      '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="markUsedById(\''+c.code+'\',this)">使用済みにする</button>':'—';
+    return '<tr>'+
+      '<td style="font-family:var(--fm);font-size:12px;">'+c.code+'</td>'+
+      '<td style="font-weight:500;">'+c.user+'</td>'+
+      '<td>'+c.novelty+'</td>'+
+      '<td>'+typeBadge+'</td>'+
+      '<td style="color:var(--ts);">'+c.issued+'</td>'+
+      '<td style="color:var(--ts);">'+c.expires+'</td>'+
+      '<td>'+statusBadge+'</td>'+
+      '<td>'+action+'</td>'+
+      '</tr>';
+  }).join('');
+}
+
+function markUsedById(code,btn){
+  if(!confirm('このクーポンを使用済みにしますか？'))return;
+  const c=adminCoupons.find(x=>x.code===code);
+  if(c){c.status='used';renderAdminCoupons();}
+}
+
+renderAdminCoupons();
+renderThanks();
+</script>
+</div>
+</div>
+</body>
+</html>
