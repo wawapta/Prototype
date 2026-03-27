@@ -846,22 +846,28 @@ async function doLogout(){
 (async()=>{
   await initSupabase();
   if(!sbClient)return;
-  const {data:{session}}=await sbClient.auth.getSession();
-  if(session){
-    const hasProfile=await loadProfile(session.user);
-    if(hasProfile){
-      showMain();
-    } else {
-      showOnboarding();
-    }
-  }
+
+  // onAuthStateChangeを先に登録（OAuthリダイレクト後のSIGNED_INを確実にキャッチ）
   sbClient.auth.onAuthStateChange(async(event,session)=>{
-    if(event==='SIGNED_IN'&&session){
+    console.log('authStateChange:', event, session?.user?.id);
+    if((event==='SIGNED_IN'||event==='INITIAL_SESSION')&&session){
       const hasProfile=await loadProfile(session.user);
       if(hasProfile) showMain();
       else showOnboarding();
     }
+    if(event==='SIGNED_OUT'){
+      location.reload();
+    }
   });
+
+  // 既存セッションの確認
+  const {data:{session}}=await sbClient.auth.getSession();
+  console.log('getSession:', session?.user?.id);
+  if(session){
+    const hasProfile=await loadProfile(session.user);
+    if(hasProfile) showMain();
+    else showOnboarding();
+  }
 })();
 
 function og(n){
