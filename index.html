@@ -594,7 +594,14 @@ async function initSupabase(){
     console.warn('Supabase SDKが読み込まれていません。デモモードで動作します。');
     return null;
   }
-  sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+    auth:{
+      detectSessionInUrl:true,
+      persistSession:true,
+      autoRefreshToken:true,
+      flowType:'implicit'
+    }
+  });
   return sbClient;
 }
 
@@ -637,9 +644,10 @@ async function doRegister(){
 
 async function doGoogleLogin(){
   if(!sbClient){showOnboarding();return;}
+  const redirectTo=location.origin+location.pathname;
   await sbClient.auth.signInWithOAuth({
     provider:'google',
-    options:{redirectTo:'https://wawapta.github.io/Prototype'}
+    options:{redirectTo:redirectTo}
   });
 }
 
