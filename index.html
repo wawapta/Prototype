@@ -644,10 +644,16 @@ async function doGoogleLogin(){
 }
 
 async function loadProfile(user){
-  if(!sbClient||!user)return;
-  const {data}=await sbClient.from('profiles').select('*').eq('id',user.id).single();
-  if(data){
-    const nick=data.nickname||'ゲスト';
+  if(!sbClient||!user)return false;
+  const {data,error}=await sbClient.from('profiles').select('*').eq('id',user.id).single();
+  console.log('loadProfile:', {data, error, userId: user.id});
+  if(error&&error.code!=='PGRST116'){
+    // PGRST116 = 0 rows（新規ユーザー）以外のエラー
+    console.error('profileエラー:', error);
+    return false;
+  }
+  if(data&&data.nickname){
+    const nick=data.nickname;
     const emoji=data.emoji||'🌸';
     const grades=data.grades||'保護者';
     document.getElementById('hnick').textContent=nick+'さん';
@@ -655,10 +661,8 @@ async function loadProfile(user){
     document.getElementById('hgrade').textContent=grades;
     document.getElementById('snick').textContent=nick+'さん '+emoji;
     document.getElementById('tpt').textContent=data.total_pt||0;
-    // 実績を反映
     await loadStats(user.id);
-    // プロフィールが存在する→オンボーディングスキップ
-    return true;
+    return true; // プロフィール設定済み→ホームへ
   }
   return false; // 新規ユーザー→オンボーディングへ
 }
