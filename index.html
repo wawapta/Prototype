@@ -489,7 +489,7 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
     </div>
     <div class="st">プライバシーポリシー</div>
     <div class="ib">収集：ニックネーム・メール・学年・活動履歴<br>非収集：氏名・住所・クラス・電話番号<br>第三者提供：なし</div>
-    <button class="db" onclick="if(confirm('退会してデータを削除しますか？'))location.reload()">退会・データ削除</button>
+    <button class="db" onclick="if(confirm('退会してデータを削除しますか？'))doLogout()">退会・データ削除</button>
     <div style="margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--cb1);">
       <div style="font-size:11px;color:var(--cs);margin-bottom:.5rem;">役員・担当者の方</div>
       <button onclick="window.location.href='admin.html'" style="width:100%;padding:10px;background:var(--blue-50);color:var(--blue-600);border:0.5px solid var(--blue-100);border-radius:var(--rm);font-size:13px;cursor:pointer;font-family:var(--fs);">管理者画面を開く →</button>
@@ -581,7 +581,7 @@ function switchTab(n){
 
 // ======== Supabase設定 ========
 const SUPABASE_URL='https://yqwdotbowmoaxmqqpidr.supabase.co';
-const SUPABASE_KEY='ここにPublishable_keyを貼り付ける';
+const SUPABASE_KEY='sb_publishable_glmTeKs54pUJe434c_DIug_dYyuj9Im';
 let sbClient=null;
 
 async function initSupabase(){
@@ -647,7 +647,6 @@ async function loadProfile(user){
   if(!sbClient||!user)return;
   const {data}=await sbClient.from('profiles').select('*').eq('id',user.id).single();
   if(data){
-    // 既存プロフィールをUIに反映
     const nick=data.nickname||'ゲスト';
     const emoji=data.emoji||'🌸';
     const grades=data.grades||'保護者';
@@ -656,7 +655,26 @@ async function loadProfile(user){
     document.getElementById('hgrade').textContent=grades;
     document.getElementById('snick').textContent=nick+'さん '+emoji;
     document.getElementById('tpt').textContent=data.total_pt||0;
+    // 実績を反映
+    await loadStats(user.id);
+    // プロフィールが存在する→オンボーディングスキップ
+    return true;
   }
+  return false; // 新規ユーザー→オンボーディングへ
+}
+
+async function loadStats(userId){
+  if(!sbClient)return;
+  // 参加回数
+  const {count:volCount}=await sbClient.from('participations').select('*',{count:'exact',head:true}).eq('user_id',userId);
+  if(volCount!=null) document.getElementById('sv').textContent=volCount;
+  // ありがとう送受信数
+  const {count:tkSent}=await sbClient.from('thanks').select('*',{count:'exact',head:true}).eq('from_user_id',userId);
+  const {count:tkRecv}=await sbClient.from('thanks').select('*',{count:'exact',head:true}).eq('to_user_id',userId);
+  document.getElementById('stk').textContent=(tkSent||0)+(tkRecv||0);
+  // クーポン数
+  const {count:cpCount}=await sbClient.from('coupons').select('*',{count:'exact',head:true}).eq('user_id',userId);
+  if(cpCount!=null) document.getElementById('scp').textContent=cpCount;
 }
 
 async function saveProfile(nick,emoji,grades){
@@ -673,6 +691,131 @@ async function saveProfile(nick,emoji,grades){
   });
 }
 
+// ======== WaPTポイント付与 ========
+async function addPtDB(userId,amount,reason,note){
+  if(!sbClient||!userId)return;
+  // point_logsに記録
+  await sbClient.from('point_logs').insert({
+    user_id:userId,
+    amount:amount,
+    reason:reason,
+    note:note||''
+  });
+  // profilesのtotal_ptを更新
+  const {data:prof}=await sbClient.from('profiles').select('total_pt').eq('id',userId).single();
+  const newPt=(prof?.total_pt||0)+amount;
+  await sbClient.from('profiles').update({total_pt:newPt}).eq('id',userId);
+  document.getElementById('tpt').textContent=newPt;
+  return newPt;
+}
+
+// ======== ボランティア参加登録 ========
+async function joinVolDB(volId,volTitle,ptAmount){
+  if(!sbClient)return false;
+  const {data:{user}}=await sbClient.auth.getUser();
+  if(!user)return false;
+  // 重複チェック
+  const {data:exists}=await sbClient.from('participations').select('id').eq('user_id',user.id).eq('volunteer_id',volId).single();
+  if(exists)return false;
+  // 参加記録
+  await sbClient.from('participations').insert({
+    user_id:user.id,
+    volunteer_id:volId,
+    pt_earned:ptAmount
+  });
+  // ポイント付与
+  await addPtDB(user.id,ptAmount,'volunteer',volTitle);
+  return true;
+}
+
+// ======== QR参加記録 ========
+async function confirmScanDB(eventName,ptAmount){
+  if(!sbClient)return;
+  const {data:{user}}=await sbClient.auth.getUser();
+  if(!user)return;
+  await sbClient.from('participations').insert({
+    user_id:user.id,
+    volunteer_id:null,
+    pt_earned:ptAmount,
+    note:eventName
+  });
+  await addPtDB(user.id,ptAmount,'qr_scan',eventName);
+}
+
+// ======== ありがとう送信 ========
+async function sendThanksDB(toUserId,message){
+  if(!sbClient)return false;
+  const {data:{user}}=await sbClient.auth.getUser();
+  if(!user)return false;
+  await sbClient.from('thanks').insert({
+    from_user_id:user.id,
+    to_user_id:toUserId,
+    message:message
+  });
+  // 受信者に+1PT
+  await addPtDB(toUserId,1,'thanks_received','ありがとうを受信');
+  return true;
+}
+
+// ======== ありがとうフィード取得 ========
+async function loadThanksDB(){
+  if(!sbClient)return;
+  const {data}=await sbClient.from('thanks')
+    .select('*')
+    .order('created_at',{ascending:false})
+    .limit(20);
+  if(!data||!data.length)return;
+  const feed=document.getElementById('tfeed');
+  // サーバーデータがある場合は差し替え
+  const serverCards=data.map(t=>{
+    const card=document.createElement('div');card.className='tc2';
+    card.innerHTML='<div class="th2"><div class="tav">💌</div><div><div class="tn">送信者</div></div><div class="ttm">'+new Date(t.created_at).toLocaleDateString('ja-JP')+'</div></div>'+
+      '<div class="tm2">'+t.message+'</div>';
+    return card;
+  });
+  if(serverCards.length>0){
+    feed.innerHTML='';
+    serverCards.forEach(c=>feed.appendChild(c));
+  }
+}
+
+// ======== クーポン発行 ========
+async function issueCouponDB(userId,novelty){
+  if(!sbClient||!userId)return null;
+  const code='NMC-'+String(Date.now()).slice(-6);
+  const expires=new Date();expires.setMonth(expires.getMonth()+3);
+  const {data}=await sbClient.from('coupons').insert({
+    user_id:userId,
+    code:code,
+    novelty:novelty||'オリジナルトートバッグ',
+    expires_at:expires.toISOString(),
+    status:'unused'
+  }).select().single();
+  return data;
+}
+
+// ======== クーポン取得 ========
+async function loadCouponsDB(){
+  if(!sbClient)return;
+  const {data:{user}}=await sbClient.auth.getUser();
+  if(!user)return;
+  const {data}=await sbClient.from('coupons').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
+  if(!data||!data.length)return;
+  // cups配列を上書き
+  cups.length=0;
+  data.forEach(c=>{
+    cups.push({
+      id:c.code,
+      label:'ノベルティ交換券',
+      novelty:c.novelty,
+      issued:new Date(c.created_at).toLocaleDateString('ja-JP').replace(/\//g,'/'),
+      expires:c.expires_at?new Date(c.expires_at).toLocaleDateString('ja-JP').replace(/\//g,'/'):'無期限',
+      status:c.status
+    });
+  });
+  rc();
+}
+
 function showOnboarding(){
   document.getElementById('slogin').classList.remove('on');
   document.getElementById('sob').classList.add('on');
@@ -683,6 +826,11 @@ function showMain(){
   document.getElementById('sob').classList.remove('on');
   document.getElementById('smain').classList.add('on');
   bsg();ra();
+  // DB連携データ読み込み
+  if(sbClient){
+    loadThanksDB();
+    loadCouponsDB();
+  }
 }
 
 async function doLogout(){
@@ -694,17 +842,20 @@ async function doLogout(){
 (async()=>{
   await initSupabase();
   if(!sbClient)return;
-  // セッション確認
   const {data:{session}}=await sbClient.auth.getSession();
   if(session){
-    await loadProfile(session.user);
-    showMain();
+    const hasProfile=await loadProfile(session.user);
+    if(hasProfile){
+      showMain();
+    } else {
+      showOnboarding();
+    }
   }
-  // 認証状態変化を監視
   sbClient.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_IN'&&session){
-      await loadProfile(session.user);
-      showMain();
+      const hasProfile=await loadProfile(session.user);
+      if(hasProfile) showMain();
+      else showOnboarding();
     }
   });
 })();
@@ -862,7 +1013,10 @@ function doScan(){
 }
 function confScan(){
   const p=parseInt(document.getElementById('rpt').textContent.replace(/[^0-9]/g,''));
-  ap(p,document.getElementById('rname').textContent,true);
+  const name=document.getElementById('rname').textContent;
+  ap(p,name,true);
+  // DB連携
+  confirmScanDB(name,p);
   document.getElementById('sres').classList.remove('on');
   document.getElementById('qin').innerHTML='<div style="font-size:48px;">✓</div>';sc=false;
 }
@@ -904,6 +1058,8 @@ function sendT(){
   ap(1,'ありがとうをもらった',false);
   document.getElementById('stk').textContent=parseInt(document.getElementById('stk').textContent)+1;
   const n=document.getElementById('tntf');n.textContent=r.e+' '+r.n+'にありがとうを送りました！';n.classList.add('on');setTimeout(()=>n.classList.remove('on'),3000);
+  // DB連携（to_user_idはデモではnull）
+  if(sbClient) sendThanksDB(null,msg);
   const feed=document.getElementById('tfeed');
   const card=document.createElement('div');card.className='tc2';
   card.innerHTML='<div class="th2"><div class="tav">'+oe+'</div><div><div class="tn">'+document.getElementById('hnick').textContent+' より</div><div class="tgb">'+document.getElementById('hgrade').textContent+'</div></div><div class="ttm">たった今</div></div>'+
