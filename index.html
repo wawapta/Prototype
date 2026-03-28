@@ -367,7 +367,7 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
         <div style="font-size:15px;font-weight:500;color:var(--teal-800);" id="hnick">さくらさん</div>
         <div style="font-size:12px;color:var(--teal-600);margin-top:2px;" id="hgrade">3年生・5年生 保護者</div>
       </div>
-      <div class="ptb"><div class="ptn" id="tpt">12</div><div class="ptl">WaPT</div></div>
+      <div class="ptb"><div class="ptn" id="tpt">0</div><div class="ptl">WaPT</div></div>
     </div>
     <div class="prb"><div class="prd"></div>氏名・クラス・住所は収集していません</div>
     <div id="narea" style="margin-bottom:.5rem;"></div>
@@ -392,10 +392,10 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
 
     <div class="st">実績</div>
     <div class="sg">
-      <div class="sc"><div class="sn" id="sv">5</div><div class="sl">参加回数</div></div>
-      <div class="sc"><div class="sn" id="stk">8</div><div class="sl">ありがとう送受信</div></div>
-      <div class="sc"><div class="sn" id="sst">2</div><div class="sl">スタンプ数</div></div>
-      <div class="sc"><div class="sn" id="scp">1</div><div class="sl">クーポン獲得</div></div>
+      <div class="sc"><div class="sn" id="sv">0</div><div class="sl">参加回数</div></div>
+      <div class="sc"><div class="sn" id="stk">0</div><div class="sl">ありがとう送受信</div></div>
+      <div class="sc"><div class="sn" id="sst">0</div><div class="sl">スタンプ数</div></div>
+      <div class="sc"><div class="sn" id="scp">0</div><div class="sl">クーポン獲得</div></div>
     </div>
     <div class="st">WaPTガイド</div>
     <div class="pg">
@@ -537,7 +537,7 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
 </div>
 <script>
 const PPS=5,SPC=5;
-let pt=12,si=0,sc=false,sr=-1,af='all',cs=1,os=1,oe='🌸',og2=[3,5];
+let pt=0,si=0,sc=false,sr=-1,af='all',cs=1,os=1,oe='🌸',og2=[];
 let cups=[{id:'NMC-0000',label:'ノベルティ交換券 #1',novelty:'オリジナルトートバッグ',issued:'2026/01/20',expires:'2026/06/30',status:'used'}];
 let notifs=[
   {t:'tl',i:'🎉',m:'入学式 会場設営の募集が始まりました！',id:'n1'},
@@ -683,18 +683,23 @@ async function doGoogleLogin(){
 }
 
 async function loadProfile(user){
-  if(!sbClient||!user)return false;
+  if(!user)return false;
   console.log('loadProfile開始 userId:', user.id);
   try{
-    // 5秒タイムアウト付きでクエリ
-    const queryPromise=sbClient.from('profiles').select('*').eq('id',user.id).maybeSingle();
-    const timeoutPromise=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),5000));
-    const {data,error}=await Promise.race([queryPromise,timeoutPromise]);
-    console.log('loadProfile結果:', data, error);
-    if(error){
-      console.error('profileエラー:', error.message, error.code);
-      return false;
-    }
+    const {data:{session}}=await sbClient.auth.getSession();
+    const token=session?.access_token;
+    if(!token){console.log('トークンなし');return false;}
+    const res=await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=*`,
+      {headers:{
+        'apikey':SUPABASE_KEY,
+        'Authorization':`Bearer ${token}`,
+        'Content-Type':'application/json'
+      }}
+    );
+    const rows=await res.json();
+    console.log('loadProfile結果:', rows);
+    const data=rows&&rows.length>0?rows[0]:null;
     if(data&&data.nickname){
       document.getElementById('hnick').textContent=data.nickname+'さん';
       document.getElementById('hav').textContent=data.emoji||'🌸';
@@ -706,9 +711,8 @@ async function loadProfile(user){
     }
     console.log('プロフィールなし → showOnboarding');
     return false;
-  } catch(e){
+  }catch(e){
     console.error('loadProfileエラー:', e.message);
-    // タイムアウトや接続エラーでもオンボーディングへ進む
     return false;
   }
 }
@@ -728,17 +732,27 @@ async function loadStats(userId){
 }
 
 async function saveProfile(nick,emoji,grades){
-  if(!sbClient)return;
-  const {data:{user}}=await sbClient.auth.getUser();
-  if(!user)return;
-  await sbClient.from('profiles').upsert({
-    id:user.id,
-    nickname:nick,
-    emoji:emoji,
-    grades:grades,
-    total_pt:0,
-    role:'member'
-  });
+  if(!sbClient){console.warn('saveProfile: sbClientなし');return;}
+  try{
+    const {data:{user}}=await sbClient.auth.getUser();
+    if(!user){console.warn('saveProfile: userなし');return;}
+    console.log('saveProfile開始:', {id:user.id, nick, emoji, grades});
+    const {data,error}=await sbClient.from('profiles').upsert({
+      id:user.id,
+      nickname:nick,
+      emoji:emoji,
+      grades:grades,
+      total_pt:0,
+      role:'member'
+    }).select();
+    if(error){
+      console.error('saveProfileエラー:', error.message, error.code);
+    } else {
+      console.log('saveProfile成功:', data);
+    }
+  }catch(e){
+    console.error('saveProfile例外:', e.message);
+  }
 }
 
 // ======== WaPTポイント付与 ========
@@ -850,7 +864,7 @@ async function loadCouponsDB(){
   try{
     const {data:{user}}=await sbClient.auth.getUser();
     if(!user)return;
-    const {data,error}=await sbClient.from('coupons').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
+    const {data,error}=await sbClient.from('coupons').select('*').eq('user_id',user.id);
     if(error){console.error('couponsエラー:',error.message);return;}
     if(!data||!data.length)return;
     cups.length=0;
@@ -859,7 +873,7 @@ async function loadCouponsDB(){
         id:c.code,
         label:'ノベルティ交換券',
         novelty:c.novelty||'ノベルティ',
-        issued:new Date(c.created_at).toLocaleDateString('ja-JP'),
+        issued:c.issued_at?new Date(c.issued_at).toLocaleDateString('ja-JP'):'',
         expires:c.expires_at?new Date(c.expires_at).toLocaleDateString('ja-JP'):'無期限',
         status:c.status||'unused'
       });
