@@ -847,23 +847,25 @@ async function issueCouponDB(userId,novelty){
 // ======== クーポン取得 ========
 async function loadCouponsDB(){
   if(!sbClient)return;
-  const {data:{user}}=await sbClient.auth.getUser();
-  if(!user)return;
-  const {data}=await sbClient.from('coupons').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
-  if(!data||!data.length)return;
-  // cups配列を上書き
-  cups.length=0;
-  data.forEach(c=>{
-    cups.push({
-      id:c.code,
-      label:'ノベルティ交換券',
-      novelty:c.novelty,
-      issued:new Date(c.created_at).toLocaleDateString('ja-JP').replace(/\//g,'/'),
-      expires:c.expires_at?new Date(c.expires_at).toLocaleDateString('ja-JP').replace(/\//g,'/'):'無期限',
-      status:c.status
+  try{
+    const {data:{user}}=await sbClient.auth.getUser();
+    if(!user)return;
+    const {data,error}=await sbClient.from('coupons').select('*').eq('user_id',user.id).order('created_at',{ascending:false});
+    if(error){console.error('couponsエラー:',error.message);return;}
+    if(!data||!data.length)return;
+    cups.length=0;
+    data.forEach(c=>{
+      cups.push({
+        id:c.code,
+        label:'ノベルティ交換券',
+        novelty:c.novelty||'ノベルティ',
+        issued:new Date(c.created_at).toLocaleDateString('ja-JP'),
+        expires:c.expires_at?new Date(c.expires_at).toLocaleDateString('ja-JP'):'無期限',
+        status:c.status||'unused'
+      });
     });
-  });
-  rc();
+    rc();
+  }catch(e){console.error('loadCouponsDBエラー:',e);}
 }
 
 function hideAllScreens(){
@@ -909,10 +911,10 @@ async function doLogout(){
 
   let handled=false;
 
+  // SIGNED_INのみ処理（INITIAL_SESSIONは無視）
   sbClient.auth.onAuthStateChange(async(event,session)=>{
     console.log('authStateChange:', event, session?.user?.id);
-    if(handled)return;
-    if((event==='SIGNED_IN')&&session){
+    if(event==='SIGNED_IN'&&session&&!handled){
       handled=true;
       const hasProfile=await loadProfile(session.user);
       if(hasProfile) showMain();
@@ -924,6 +926,7 @@ async function doLogout(){
     }
   });
 
+  // 既存セッション確認（ページ再読み込み時のみ）
   const {data:{session}}=await sbClient.auth.getSession();
   console.log('getSession:', session?.user?.id);
   if(session&&!handled){
