@@ -629,8 +629,12 @@ async function doLogin(){
     if(errEl){errEl.textContent='メールアドレスまたはパスワードが違います';errEl.style.display='block';}
     return;
   }
-  await loadProfile(data.user);
-  showMain();
+  const hasProfile=await loadProfile(data.user);
+  if(hasProfile){
+    showMain();
+  } else {
+    showOnboarding();
+  }
 }
 
 async function doRegister(){
@@ -677,11 +681,12 @@ async function doGoogleLogin(){
 
 async function loadProfile(user){
   if(!sbClient||!user)return false;
+  console.log('loadProfile開始 userId:', user.id);
   const {data,error}=await sbClient.from('profiles').select('*').eq('id',user.id).single();
-  console.log('loadProfile:', {data, error, userId: user.id});
+  console.log('loadProfile結果:', JSON.stringify({data, error}));
   if(error&&error.code!=='PGRST116'){
-    // PGRST116 = 0 rows（新規ユーザー）以外のエラー
     console.error('profileエラー:', error);
+    // エラーでもオンボーディングへ（新規ユーザー扱い）
     return false;
   }
   if(data&&data.nickname){
@@ -694,9 +699,11 @@ async function loadProfile(user){
     document.getElementById('snick').textContent=nick+'さん '+emoji;
     document.getElementById('tpt').textContent=data.total_pt||0;
     await loadStats(user.id);
-    return true; // プロフィール設定済み→ホームへ
+    console.log('プロフィール読み込み完了 → showMain');
+    return true;
   }
-  return false; // 新規ユーザー→オンボーディングへ
+  console.log('プロフィールなし → showOnboarding');
+  return false;
 }
 
 async function loadStats(userId){
@@ -852,21 +859,31 @@ async function loadCouponsDB(){
   rc();
 }
 
+function hideAllScreens(){
+  ['slogin','sob','smain'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.classList.remove('on');el.style.display='none';}
+  });
+}
+
 function showOnboarding(){
-  document.getElementById('slogin').classList.remove('on');
-  document.getElementById('sob').classList.add('on');
+  hideAllScreens();
+  const el=document.getElementById('sob');
+  el.style.display='block';el.classList.add('on');
 }
 
 function showMain(){
-  document.getElementById('slogin').classList.remove('on');
-  document.getElementById('sob').classList.remove('on');
-  document.getElementById('smain').classList.add('on');
+  hideAllScreens();
+  const el=document.getElementById('smain');
+  el.style.display='block';el.classList.add('on');
   bsg();ra();
-  // DB連携データ読み込み
-  if(sbClient){
-    loadThanksDB();
-    loadCouponsDB();
-  }
+  if(sbClient){loadThanksDB();loadCouponsDB();}
+}
+
+function showLogin(){
+  hideAllScreens();
+  const el=document.getElementById('slogin');
+  el.style.display='flex';el.classList.add('on');
 }
 
 async function doLogout(){
