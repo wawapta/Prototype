@@ -600,7 +600,7 @@ async function initSupabase(){
       detectSessionInUrl:true,
       persistSession:true,
       autoRefreshToken:true,
-      flowType:'implicit'
+      storageKey:'wawa-auth'
     }
   });
   return sbClient;
@@ -614,10 +614,7 @@ async function doLogin(){
   const btn=document.querySelector('#lform-login button');
   if(errEl) errEl.style.display='none';
 
-  if(!sbClient){
-    showOnboarding();
-    return;
-  }
+  if(!sbClient){showOnboarding();return;}
   if(!email||!pass){
     if(errEl){errEl.textContent='メールアドレスとパスワードを入力してください';errEl.style.display='block';}
     return;
@@ -629,7 +626,10 @@ async function doLogin(){
       if(errEl){errEl.textContent='メールアドレスまたはパスワードが違います';errEl.style.display='block';}
       return;
     }
+    console.log('ログイン成功 user:', data.user.id);
+    // 直接プロフィール確認して画面遷移
     const hasProfile=await loadProfile(data.user);
+    console.log('hasProfile:', hasProfile);
     if(hasProfile) showMain();
     else showOnboarding();
   } catch(e){
@@ -686,7 +686,10 @@ async function loadProfile(user){
   if(!sbClient||!user)return false;
   console.log('loadProfile開始 userId:', user.id);
   try{
-    const {data,error}=await sbClient.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    // 5秒タイムアウト付きでクエリ
+    const queryPromise=sbClient.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    const timeoutPromise=new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),5000));
+    const {data,error}=await Promise.race([queryPromise,timeoutPromise]);
     console.log('loadProfile結果:', data, error);
     if(error){
       console.error('profileエラー:', error.message, error.code);
@@ -704,7 +707,8 @@ async function loadProfile(user){
     console.log('プロフィールなし → showOnboarding');
     return false;
   } catch(e){
-    console.error('loadProfileエラー:', e);
+    console.error('loadProfileエラー:', e.message);
+    // タイムアウトや接続エラーでもオンボーディングへ進む
     return false;
   }
 }
@@ -899,23 +903,27 @@ async function doLogout(){
   await initSupabase();
   if(!sbClient)return;
 
-  // onAuthStateChangeを先に登録（OAuthリダイレクト後のSIGNED_INを確実にキャッチ）
+  let handled=false;
+
   sbClient.auth.onAuthStateChange(async(event,session)=>{
     console.log('authStateChange:', event, session?.user?.id);
-    if((event==='SIGNED_IN'||event==='INITIAL_SESSION')&&session){
+    if(handled)return;
+    if((event==='SIGNED_IN')&&session){
+      handled=true;
       const hasProfile=await loadProfile(session.user);
       if(hasProfile) showMain();
       else showOnboarding();
     }
     if(event==='SIGNED_OUT'){
+      handled=false;
       location.reload();
     }
   });
 
-  // 既存セッションの確認
   const {data:{session}}=await sbClient.auth.getSession();
   console.log('getSession:', session?.user?.id);
-  if(session){
+  if(session&&!handled){
+    handled=true;
     const hasProfile=await loadProfile(session.user);
     if(hasProfile) showMain();
     else showOnboarding();
