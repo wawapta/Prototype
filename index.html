@@ -875,6 +875,10 @@ function hideAllScreens(){
 
 function showOnboarding(){
   hideAllScreens();
+  // ステップを最初にリセット
+  os=1;
+  document.querySelectorAll('.obs').forEach(el=>el.classList.remove('on'));
+  document.getElementById('ob1')?.classList.add('on');
   const el=document.getElementById('sob');
   el.style.display='block';el.classList.add('on');
 }
@@ -951,11 +955,8 @@ function fin(){
   document.getElementById('hav').textContent=emoji_val;
   document.getElementById('snick').textContent=nick+'さん '+emoji_val;
   document.getElementById('hgrade').textContent=gl;
-  // Supabaseにプロフィール保存
   saveProfile(nick,emoji_val,gl);
-  document.getElementById('sob').classList.remove('on');
-  document.getElementById('smain').classList.add('on');
-  bsg();ra();
+  showMain();
 }
 const tmap={'home':'t-home','scan':'t-scan','vol':'t-vol','thanks':'t-thanks','coup':'t-coup','set':'t-set','admin':'t-admin'};
 const tabs=['home','scan','vol','thanks','coup','set'];
