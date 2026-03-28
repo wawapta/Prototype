@@ -611,10 +611,10 @@ async function doLogin(){
   const email=document.getElementById('l-email')?.value?.trim();
   const pass=document.getElementById('l-pass')?.value;
   const errEl=document.getElementById('l-error');
+  const btn=document.querySelector('#lform-login button');
   if(errEl) errEl.style.display='none';
 
   if(!sbClient){
-    // Supabase未接続の場合はデモモードで動作
     showOnboarding();
     return;
   }
@@ -622,18 +622,21 @@ async function doLogin(){
     if(errEl){errEl.textContent='メールアドレスとパスワードを入力してください';errEl.style.display='block';}
     return;
   }
-  const btn=event.target;btn.textContent='ログイン中...';btn.disabled=true;
-  const {data,error}=await sbClient.auth.signInWithPassword({email,password:pass});
-  btn.textContent='ログイン';btn.disabled=false;
-  if(error){
-    if(errEl){errEl.textContent='メールアドレスまたはパスワードが違います';errEl.style.display='block';}
-    return;
-  }
-  const hasProfile=await loadProfile(data.user);
-  if(hasProfile){
-    showMain();
-  } else {
-    showOnboarding();
+  if(btn){btn.textContent='ログイン中...';btn.disabled=true;}
+  try{
+    const {data,error}=await sbClient.auth.signInWithPassword({email,password:pass});
+    if(error){
+      if(errEl){errEl.textContent='メールアドレスまたはパスワードが違います';errEl.style.display='block';}
+      return;
+    }
+    const hasProfile=await loadProfile(data.user);
+    if(hasProfile) showMain();
+    else showOnboarding();
+  } catch(e){
+    console.error('ログインエラー:',e);
+    if(errEl){errEl.textContent='エラーが発生しました。再度お試しください。';errEl.style.display='block';}
+  } finally {
+    if(btn){btn.textContent='ログイン';btn.disabled=false;}
   }
 }
 
@@ -682,28 +685,28 @@ async function doGoogleLogin(){
 async function loadProfile(user){
   if(!sbClient||!user)return false;
   console.log('loadProfile開始 userId:', user.id);
-  const {data,error}=await sbClient.from('profiles').select('*').eq('id',user.id).single();
-  console.log('loadProfile結果:', JSON.stringify({data, error}));
-  if(error&&error.code!=='PGRST116'){
-    console.error('profileエラー:', error);
-    // エラーでもオンボーディングへ（新規ユーザー扱い）
+  try{
+    const {data,error}=await sbClient.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    console.log('loadProfile結果:', data, error);
+    if(error){
+      console.error('profileエラー:', error.message, error.code);
+      return false;
+    }
+    if(data&&data.nickname){
+      document.getElementById('hnick').textContent=data.nickname+'さん';
+      document.getElementById('hav').textContent=data.emoji||'🌸';
+      document.getElementById('hgrade').textContent=data.grades||'保護者';
+      document.getElementById('snick').textContent=data.nickname+'さん '+(data.emoji||'🌸');
+      document.getElementById('tpt').textContent=data.total_pt||0;
+      console.log('プロフィール読み込み完了 → showMain');
+      return true;
+    }
+    console.log('プロフィールなし → showOnboarding');
+    return false;
+  } catch(e){
+    console.error('loadProfileエラー:', e);
     return false;
   }
-  if(data&&data.nickname){
-    const nick=data.nickname;
-    const emoji=data.emoji||'🌸';
-    const grades=data.grades||'保護者';
-    document.getElementById('hnick').textContent=nick+'さん';
-    document.getElementById('hav').textContent=emoji;
-    document.getElementById('hgrade').textContent=grades;
-    document.getElementById('snick').textContent=nick+'さん '+emoji;
-    document.getElementById('tpt').textContent=data.total_pt||0;
-    await loadStats(user.id);
-    console.log('プロフィール読み込み完了 → showMain');
-    return true;
-  }
-  console.log('プロフィールなし → showOnboarding');
-  return false;
 }
 
 async function loadStats(userId){
