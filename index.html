@@ -507,6 +507,7 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
     </div>
     <div class="st">プライバシーポリシー</div>
     <div class="ib">収集：ニックネーム・メール・学年・活動履歴<br>非収集：氏名・住所・クラス・電話番号<br>第三者提供：なし</div>
+    <button onclick="if(confirm('ログアウトしますか？'))doLogout()" style="width:100%;padding:11px;background:transparent;color:var(--teal-600);border:0.5px solid var(--teal-600);border-radius:var(--rm);font-size:14px;cursor:pointer;margin-bottom:8px;">ログアウト</button>
     <button class="db" onclick="if(confirm('退会してデータを削除しますか？'))doLogout()">退会・データ削除</button>
     <div style="margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--cb1);">
       <div style="font-size:11px;color:var(--cs);margin-bottom:.5rem;">役員・担当者の方</div>
@@ -716,7 +717,7 @@ function showEmailConfirm(email){
     <div style="background:var(--cbs);border-radius:12px;padding:1rem;font-size:13px;color:var(--cs);line-height:1.8;margin-bottom:1.5rem;">
       📌 メールが届かない場合は迷惑メールフォルダをご確認ください
     </div>
-    <button onclick="switchTab(1);location.reload();" style="width:100%;padding:13px;background:var(--teal-600);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;">
+    <button onclick="location.reload();" style="width:100%;padding:13px;background:var(--teal-600);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;">
       ログイン画面に戻る
     </button>
   </div>`;
