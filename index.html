@@ -6,7 +6,7 @@
 <meta name="description" content="WaWa - PTAボランティア・ありがとうアプリ">
 <meta name="theme-color" content="#edf6ff">
 <title>WaWa - PTAたすけあいアプリ</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -282,7 +282,24 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
       <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--cs);">すでにアカウントをお持ちの方は<span style="color:var(--teal-600);cursor:pointer;font-weight:500;" onclick="switchTab(1)">ログイン</span></div>
     </div>
 
-    <!-- ソーシャルログイン -->
+  <!-- メール認証待ち画面 -->
+  <div id="lform-verify" style="display:none;text-align:center;padding:1rem 0;">
+    <div style="font-size:48px;margin-bottom:1rem;">📧</div>
+    <div style="font-size:16px;font-weight:500;color:var(--ct);margin-bottom:.75rem;">確認メールを送りました</div>
+    <div style="font-size:13px;color:var(--cs);line-height:1.8;margin-bottom:1.25rem;">
+      <span id="verify-email-addr" style="font-weight:500;color:var(--ct);"></span><br>
+      にメールをお送りしました。<br>
+      メール内の「<strong>メールアドレスを確認する</strong>」を<br>
+      タップしてログインを完了してください。
+    </div>
+    <div style="background:var(--cbs);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--cs);line-height:1.8;margin-bottom:1rem;text-align:left;">
+      ✔ 迷惑メールフォルダも確認してください<br>
+      ✔ メールが届かない場合は別のアドレスで再登録できます<br>
+      ✔ リンクの有効期限は24時間です
+    </div>
+    <button onclick="switchTab(2)" style="width:100%;padding:11px;background:transparent;color:var(--teal-600);border:0.5px solid var(--teal-600);border-radius:10px;font-size:13px;cursor:pointer;font-family:var(--fs);">別のアドレスで登録する</button>
+    <button onclick="switchTab(1)" style="width:100%;padding:11px;background:transparent;color:var(--cs);border:0.5px solid var(--cb1);border-radius:10px;font-size:13px;cursor:pointer;margin-top:8px;font-family:var(--fs);">ログイン画面に戻る</button>
+  </div>
     <div style="display:flex;align-items:center;gap:10px;margin:1.25rem 0;">
       <div style="flex:1;height:0.5px;background:var(--cb1);"></div>
       <div style="font-size:12px;color:var(--cs);">または</div>
@@ -659,18 +676,50 @@ async function doRegister(){
     return;
   }
   if(!sbClient){showOnboarding();return;}
-  const btn=event.target;btn.textContent='登録中...';btn.disabled=true;
-  const {data,error}=await sbClient.auth.signUp({
-    email,
-    password:pass,
-    options:{emailRedirectTo:'https://wawapta.github.io/Prototype'}
-  });
-  btn.textContent='登録して次へ';btn.disabled=false;
-  if(error){
-    if(errEl){errEl.textContent=error.message;errEl.style.display='block';}
-    return;
+  const btn=document.querySelector('#lform-register button');
+  if(btn){btn.textContent='登録中...';btn.disabled=true;}
+  try{
+    const {data,error}=await sbClient.auth.signUp({
+      email,
+      password:pass,
+      options:{emailRedirectTo:'https://wawapta.github.io/Prototype'}
+    });
+    if(error){
+      if(errEl){errEl.textContent=error.message;errEl.style.display='block';}
+      return;
+    }
+    // メール確認が必要かチェック
+    if(data.user&&!data.session){
+      // メール確認待ち画面を表示
+      showEmailConfirm(email);
+    } else {
+      showOnboarding();
+    }
+  }catch(e){
+    if(errEl){errEl.textContent='エラーが発生しました。再度お試しください。';errEl.style.display='block';}
+  } finally {
+    if(btn){btn.textContent='登録して次へ';btn.disabled=false;}
   }
-  showOnboarding();
+}
+
+function showEmailConfirm(email){
+  hideAllScreens();
+  const el=document.getElementById('slogin');
+  el.style.display='flex';
+  el.innerHTML=`<div style="flex:1;background:#fff;border-radius:24px 24px 0 0;margin-top:120px;padding:2rem 1.5rem;text-align:center;">
+    <div style="font-size:48px;margin-bottom:1rem;">📧</div>
+    <div style="font-size:18px;font-weight:500;color:var(--ct);margin-bottom:.75rem;">確認メールを送りました</div>
+    <div style="font-size:14px;color:var(--cs);line-height:1.8;margin-bottom:1.5rem;">
+      <strong>${email}</strong> に確認メールを送りました。<br>
+      メール内のリンクをクリックすると<br>登録が完了します。
+    </div>
+    <div style="background:var(--cbs);border-radius:12px;padding:1rem;font-size:13px;color:var(--cs);line-height:1.8;margin-bottom:1.5rem;">
+      📌 メールが届かない場合は迷惑メールフォルダをご確認ください
+    </div>
+    <button onclick="switchTab(1);location.reload();" style="width:100%;padding:13px;background:var(--teal-600);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;">
+      ログイン画面に戻る
+    </button>
+  </div>`;
 }
 
 async function doGoogleLogin(){
