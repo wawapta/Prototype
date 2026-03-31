@@ -252,7 +252,7 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
         <div style="font-size:12px;color:var(--cs);margin-bottom:5px;font-weight:500;">パスワード</div>
         <input id="l-pass" type="password" placeholder="パスワードを入力" style="width:100%;padding:12px 14px;border-radius:10px;border:0.5px solid var(--cb1);background:var(--cbs);color:var(--ct);font-size:14px;font-family:var(--fs);outline:none;">
       </div>
-      <div style="text-align:right;margin-bottom:16px;"><span style="font-size:12px;color:var(--teal-600);cursor:pointer;">パスワードを忘れた方</span></div>
+      <div style="text-align:right;margin-bottom:16px;"><span style="font-size:12px;color:var(--teal-600);cursor:pointer;" onclick="resetPassword()">パスワードを忘れた方</span></div>
       <div id="l-error" style="display:none;background:#fff0ed;border:0.5px solid #fcc;border-radius:8px;padding:9px 12px;font-size:12px;color:#c0392b;margin-bottom:12px;"></div>
       <button onclick="doLogin()" style="width:100%;padding:14px;background:var(--teal-600);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;letter-spacing:.02em;">ログイン</button>
       <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--cs);">アカウントをお持ちでない方は<span style="color:var(--teal-600);cursor:pointer;font-weight:500;" onclick="switchTab(2)">新規登録</span></div>
@@ -384,7 +384,10 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
         <div style="font-size:15px;font-weight:500;color:var(--teal-800);" id="hnick">さくらさん</div>
         <div style="font-size:12px;color:var(--teal-600);margin-top:2px;" id="hgrade">3年生・5年生 保護者</div>
       </div>
-      <div class="ptb"><div class="ptn" id="tpt">0</div><div class="ptl">WaPT</div></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <div class="ptb"><div class="ptn" id="tpt">0</div><div class="ptl">WaPT</div></div>
+        <button onclick="if(confirm('ログアウトしますか？'))doLogout()" style="font-size:11px;padding:3px 10px;border-radius:20px;border:0.5px solid rgba(255,255,255,0.6);background:transparent;color:var(--teal-800);cursor:pointer;">ログアウト</button>
+      </div>
     </div>
     <div class="prb"><div class="prd"></div>氏名・クラス・住所は収集していません</div>
     <div id="narea" style="margin-bottom:.5rem;"></div>
@@ -582,7 +585,26 @@ const evs=[
 ];
 
 function goAdmin(){
-  window.location.href='admin.html';
+  window.open('admin.html','_blank');
+}
+
+async function resetPassword(){
+  const email=document.getElementById('l-email')?.value?.trim();
+  if(!email){
+    alert('メールアドレスを入力してからクリックしてください');
+    return;
+  }
+  if(!sbClient){alert('接続エラー');return;}
+  const btn=event.target;btn.textContent='送信中...';
+  const {error}=await sbClient.auth.resetPasswordForEmail(email,{
+    redirectTo:'https://wawapta.github.io/Prototype'
+  });
+  btn.textContent='パスワードを忘れた方';
+  if(error){
+    alert('エラー: '+error.message);
+  } else {
+    alert(email+' にパスワードリセットのメールを送りました。メールをご確認ください。');
+  }
 }
 function switchTab(n){
   const t1=document.getElementById('ltab1'),t2=document.getElementById('ltab2');
@@ -648,11 +670,13 @@ async function doLogin(){
     // 直接プロフィール確認して画面遷移
     const hasProfile=await loadProfile(data.user);
     console.log('hasProfile:', hasProfile);
+    // loadProfile成否に関わらず画面遷移（タイムアウト対策）
     if(hasProfile) showMain();
     else showOnboarding();
   } catch(e){
     console.error('ログインエラー:',e);
-    if(errEl){errEl.textContent='エラーが発生しました。再度お試しください。';errEl.style.display='block';}
+    // 認証自体は成功している可能性があるのでオンボーディングへ
+    showOnboarding();
   } finally {
     if(btn){btn.textContent='ログイン';btn.disabled=false;}
   }
