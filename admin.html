@@ -903,18 +903,18 @@ function renderUsers(){
   const q=(document.getElementById('user-search')?.value||'').toLowerCase();
   const grade=document.getElementById('user-filter-grade')?.value||'';
   const role=document.getElementById('user-filter-role')?.value||'';
-  const filtered=users.filter((u,i)=>{
-    if(q&&!u.n.toLowerCase().includes(q)&&!u.email.toLowerCase().includes(q))return false;
-    if(grade&&u.grade!==grade)return false;
-    if(role&&u.role!==role)return false;
-    return true;
+  const filtered=[];
+  users.forEach((u,i)=>{
+    if(q&&!u.n.toLowerCase().includes(q)&&!u.email.toLowerCase().includes(q))return;
+    if(grade&&u.grade!==grade)return;
+    if(role&&u.role!==role)return;
+    filtered.push({u,i});
   });
   if(filtered.length===0){
     tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--ts);">該当するユーザーがいません</td></tr>';
     return;
   }
-  filtered.forEach((u,_)=>{
-    const i=users.indexOf(u);
+  filtered.forEach(({u,i})=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:8px;"><div style="font-size:18px;">${u.e}</div><div><div style="font-weight:500;">${u.n}</div><div style="font-size:11px;color:var(--ts);">${u.email}</div></div></div></td>`+
       `<td>${u.grade}</td><td style="font-weight:500;">${u.pt} PT</td><td>${u.vol}回</td><td>${u.date}</td>`+
