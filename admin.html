@@ -775,6 +775,21 @@ tr:hover td{background:var(--g50);}
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-delete">
+  <div class="modal">
+    <div class="modal-title">ユーザーを削除する</div>
+    <div style="background:var(--r50);border:0.5px solid var(--r600);border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <div style="font-size:14px;font-weight:500;color:var(--t);" id="modal-delete-name"></div>
+      <div style="font-size:12px;color:var(--ts);" id="modal-delete-email"></div>
+    </div>
+    <div style="background:var(--a50);border:0.5px solid var(--a100);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--a800);line-height:1.7;">この操作は取り消せません。プロフィール情報が削除されます。</div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('modal-delete')">キャンセル</button>
+      <button class="btn danger" id="modal-delete-btn" onclick="confirmDeleteUser()">削除する</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ======== 管理者認証チェック ========
 (async()=>{
@@ -792,9 +807,10 @@ tr:hover td{background:var(--g50);}
     return;
   }
 
-  const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  window.adminClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
     auth:{persistSession:true,storageKey:'wawa-auth'}
   });
+  const client=window.adminClient;
 
   // セッション確認
   const {data:{session}}=await client.auth.getSession();
@@ -834,6 +850,8 @@ tr:hover td{background:var(--g50);}
   // 認証OK → ページを表示
   console.log('管理者認証OK');
   document.body.style.visibility='visible';
+  // ユーザー一覧を実データで初期化
+  loadUsers();
 })();
 
 const users=[
@@ -870,16 +888,49 @@ function nav(name){
   const btn=document.getElementById('top-action-btn');
   if(tabs[name].action){btn.style.display='';btn.textContent=tabs[name].action;btn.setAttribute('onclick',tabs[name].actionFn);}
   else btn.style.display='none';
+  if(name==='users') loadUsers();
+}
+
+async function loadUsers(){
+  const tb=document.getElementById('user-table-body');
+  if(!window.adminClient){renderUsers();return;}
+  tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--ts);">読み込み中...</td></tr>';
+  const{data,error}=await window.adminClient.from('profiles').select('*').order('created_at',{ascending:false});
+  if(error){
+    console.error('ユーザー読込エラー:',error);
+    tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--r600);">読み込みに失敗しました</td></tr>';
+    return;
+  }
+  users.length=0;
+  (data||[]).forEach(p=>{
+    users.push({
+      id:p.id,
+      e:p.emoji||'👤',
+      n:p.nickname||'(未設定)',
+      email:p.email||'',
+      grade:p.grades||'',
+      pt:p.total_pt||0,
+      vol:0,
+      date:p.created_at?p.created_at.slice(0,10):'',
+      role:p.role||'member'
+    });
+  });
+  renderUsers();
 }
 
 function renderUsers(){
   const tb=document.getElementById('user-table-body');tb.innerHTML='';
+  if(users.length===0){
+    tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--ts);">ユーザーがいません</td></tr>';
+    return;
+  }
   users.forEach((u,i)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:8px;"><div style="font-size:18px;">${u.e}</div><div><div style="font-weight:500;">${u.n}</div><div style="font-size:11px;color:var(--ts);">${u.email}</div></div></div></td>`+
       `<td>${u.grade}</td><td style="font-weight:500;">${u.pt} PT</td><td>${u.vol}回</td><td>${u.date}</td>`+
       `<td><span class="badge ${u.role}">${u.role==='admin'?'管理者':'一般'}</span></td>`+
-      `<td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openRoleModal(${i})">ロール変更</button></td>`;
+      `<td style="display:flex;gap:6px;"><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openRoleModal(${i})">ロール変更</button>`+
+      `<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="openDeleteModal(${i})">削除</button></td>`;
     tb.appendChild(tr);
   });
 }
@@ -899,6 +950,35 @@ function saveRole(){
   users[currentRoleUser].role=document.getElementById('modal-role-select').value;
   renderUsers();
   closeModal('modal-role');
+}
+
+let deleteTargetIndex=null;
+function openDeleteModal(i){
+  deleteTargetIndex=i;
+  const u=users[i];
+  document.getElementById('modal-delete-name').textContent=u.n+'さん';
+  document.getElementById('modal-delete-email').textContent=u.email;
+  openModal('modal-delete');
+}
+
+async function confirmDeleteUser(){
+  if(deleteTargetIndex===null)return;
+  const u=users[deleteTargetIndex];
+  const btn=document.getElementById('modal-delete-btn');
+  btn.textContent='削除中...';btn.disabled=true;
+  if(window.adminClient&&u.id){
+    const{error}=await window.adminClient.from('profiles').delete().eq('id',u.id);
+    if(error){
+      alert('削除に失敗しました: '+error.message);
+      btn.textContent='削除する';btn.disabled=false;
+      return;
+    }
+  }
+  users.splice(deleteTargetIndex,1);
+  deleteTargetIndex=null;
+  renderUsers();
+  closeModal('modal-delete');
+  btn.textContent='削除する';btn.disabled=false;
 }
 
 function openModal(id){document.getElementById(id).classList.add('on');}
