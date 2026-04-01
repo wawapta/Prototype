@@ -1064,9 +1064,15 @@ function openRoleModal(i){
   openModal('modal-role');
 }
 
-function saveRole(){
+async function saveRole(){
   if(currentRoleUser===null)return;
-  users[currentRoleUser].role=document.getElementById('modal-role-select').value;
+  const newRole=document.getElementById('modal-role-select').value;
+  const u=users[currentRoleUser];
+  if(window.adminClient){
+    const{error}=await window.adminClient.from('profiles').update({role:newRole}).eq('id',u.id);
+    if(error){alert('保存に失敗しました: '+error.message);return;}
+  }
+  users[currentRoleUser].role=newRole;
   renderUsers();
   closeModal('modal-role');
 }

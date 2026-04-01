@@ -453,11 +453,8 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
   <div id="t-vol" class="tc h">
     <div class="ib">参加登録は通知メール用のアドレスのみ使用します。当日はQRコードでチェックインできます。</div>
     <div class="st">募集中のボランティア</div>
-    <div class="vl">
-      <div class="vc"><div class="vh"><div class="vt">入学式 会場設営</div><span class="vtg to">募集中</span></div><div class="vm"><span>4月3日（木）9:00〜11:00</span><span>定員 8名</span></div><div class="vf"><div class="vp">+3 WaPT</div><button class="bj" onclick="jv(this)">参加する</button></div></div>
-      <div class="vc"><div class="vh"><div class="vt">図書室 読み聞かせ</div><span class="vtg to">募集中</span></div><div class="vm"><span>毎月第2木曜 10:00〜</span><span>定員 4名</span></div><div class="vf"><div class="vp">+2 WaPT</div><button class="bj" onclick="jv(this)">参加する</button></div></div>
-      <div class="vc"><div class="vh"><div class="vt">登下校 見守りサポート</div><span class="vtg ts">締切間近</span></div><div class="vm"><span>4月7日〜 週1回〜OK</span><span>定員 10名</span></div><div class="vf"><div class="vp">+2 WaPT</div><button class="bj" onclick="jv(this)">参加する</button></div></div>
-      <div class="vc"><div class="vh"><div class="vt">バザー 運営サポート</div><span class="vtg tf">定員満了</span></div><div class="vm"><span>5月24日（土）9:00〜15:00</span><span>定員 12名</span></div><div class="vf"><div class="vp">+3 WaPT</div><button class="bj" disabled>満員</button></div></div>
+    <div class="vl" id="vol-list">
+      <div style="text-align:center;padding:1.5rem;font-size:13px;color:var(--cs);">読み込み中...</div>
     </div>
     <div class="ntf" id="jntf">参加登録しました！当日はQRコードでチェックインしてください。</div>
   </div>
@@ -562,25 +559,12 @@ const PPS=5,SPC=5;
 let pt=0,si=0,sc=false,sr=-1,af='all',cs=1,os=1,oe='🌸',og2=[];
 let pendingQrId=new URLSearchParams(location.search).get('qr_id');
 let pendingScanData=null;
-let cups=[{id:'NMC-0000',label:'ノベルティ交換券 #1',novelty:'オリジナルトートバッグ',issued:'2026/01/20',expires:'2026/06/30',status:'used'}];
-let notifs=[
-  {t:'tl',i:'🎉',m:'入学式 会場設営の募集が始まりました！',id:'n1'},
-  {t:'am',i:'⏰',m:'クーポン NMC-0000 の期限が1ヶ月後に迫っています',id:'n2'},
-  {t:'pu',i:'💌',m:'ひまわりさんからありがとうが届きました！',id:'n3'},
-];
+let cups=[];
+let notifs=[];
 let dis=[];
 const ems=['🌸','🌻','🍀','🌊','🦉','🐝','🌷','🦋','🐻','🌈','🍎','⭐'];
 const fls=['全員','1年','2年','3年','4年','5年','6年','地域'];
-const recs=[
-  {e:'🌻',n:'ひまわりさん',g:'2年生・4年生 保護者',gn:[2,4]},
-  {e:'🍀',n:'よつばさん',g:'1年生 保護者',gn:[1]},
-  {e:'🌊',n:'なみさん',g:'地域ボランティア',gn:[]},
-  {e:'🦉',n:'ふくろうさん',g:'3年生・6年生 保護者',gn:[3,6]},
-  {e:'🐝',n:'はちみつさん',g:'5年生 保護者',gn:[5]},
-  {e:'🌷',n:'チューリップさん',g:'2年生・3年生 保護者',gn:[2,3]},
-  {e:'🦋',n:'ちょうさん',g:'地域ボランティア',gn:[]},
-  {e:'🐻',n:'くまさん',g:'1年生・4年生 保護者',gn:[1,4]},
-];
+const recs=[];
 const evs=[
   {n:'入学式 会場設営',d:'2026年4月3日（木）',p:3},
   {n:'登下校 見守りサポート',d:'2026年4月7日（水）',p:2},
@@ -937,8 +921,9 @@ async function issueCouponDB(userId,novelty){
   const {data}=await sbClient.from('coupons').insert({
     user_id:userId,
     code:code,
-    novelty:novelty||'オリジナルトートバッグ',
-    expires_at:expires.toISOString(),
+    novelty_name:novelty||'オリジナルトートバッグ',
+    type:'stamp',
+    expires_at:expires.toISOString().split('T')[0],
     status:'unused'
   }).select().single();
   return data;
@@ -956,10 +941,10 @@ async function loadCouponsDB(){
     cups.length=0;
     data.forEach(c=>{
       cups.push({
-        id:c.code,
+        id:c.code||c.id,
         label:'ノベルティ交換券',
-        novelty:c.novelty||'ノベルティ',
-        issued:c.issued_at?new Date(c.issued_at).toLocaleDateString('ja-JP'):'',
+        novelty:c.novelty_name||c.novelty||'ノベルティ',
+        issued:c.created_at?new Date(c.created_at).toLocaleDateString('ja-JP'):'',
         expires:c.expires_at?new Date(c.expires_at).toLocaleDateString('ja-JP'):'無期限',
         status:c.status||'unused'
       });
@@ -990,7 +975,10 @@ function showMain(){
   const el=document.getElementById('smain');
   el.style.display='block';el.classList.add('on');
   bsg();ra();
-  if(sbClient){loadThanksDB();loadCouponsDB();}
+  if(sbClient){
+    loadThanksDB();loadCouponsDB();loadRecsDB();loadVolsDB();loadCalEventsDB();
+    sbClient.auth.getUser().then(({data:{user}})=>{if(user)loadStats(user.id);});
+  }
   if(pendingQrId){const qid=pendingQrId;pendingQrId=null;setTimeout(()=>handleQRScan(qid),400);}
 }
 
@@ -1138,18 +1126,42 @@ function rc(){
   });
   ucb();document.getElementById('scp').textContent=cups.length;
 }
-function uc(id){const c=cups.find(x=>x.id===id);if(c){c.status='used';rc();}}
+async function uc(id){
+  const c=cups.find(x=>x.id===id);
+  if(!c)return;
+  c.status='used';rc();
+  if(sbClient){
+    await sbClient.from('coupons').update({status:'used',used_at:new Date().toISOString()}).eq('code',id);
+  }
+}
 function ucb(){
   const n=cups.filter(c=>c.status==='unused').length;
   const b=document.getElementById('tcc');
   b.textContent=n>0?'クーポン('+n+')':'クーポン';b.style.color=n>0?'var(--purple-600)':'';
 }
-function ic(){
-  const code='NMC-'+String(cs++).padStart(4,'0');
-  const nv=document.getElementById('anov')?document.getElementById('anov').value:'オリジナルトートバッグ';
+async function ic(){
+  const nv=document.getElementById('anov')?.value||'オリジナルトートバッグ';
+  let code='NMC-'+String(cs++).padStart(4,'0');
+  if(sbClient){
+    const{data:{user}}=await sbClient.auth.getUser().catch(()=>({data:{user:null}}));
+    if(user){
+      const d=await issueCouponDB(user.id,nv);
+      if(d){
+        code=d.code||d.id||code;
+        cups.unshift({id:code,label:'ノベルティ交換券',novelty:d.novelty_name||nv,
+          issued:d.created_at?new Date(d.created_at).toLocaleDateString('ja-JP'):'',
+          expires:d.expires_at?new Date(d.expires_at).toLocaleDateString('ja-JP'):'無期限',
+          status:'unused'});
+        rc();document.getElementById('pcc').textContent=code;sp('pop-cp',2500);
+        notifs.unshift({t:'pu',i:'🎟',m:'クーポン '+code+' が発行されました！',id:'c'+cs});rn();
+        return;
+      }
+    }
+  }
+  // オフラインフォールバック
   const t=new Date(),e2=new Date(t);e2.setMonth(e2.getMonth()+3);
   const fmt=d=>d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
-  cups.unshift({id:code,label:'ノベルティ交換券 #'+cups.length,novelty:nv,issued:fmt(t),expires:fmt(e2),status:'unused'});
+  cups.unshift({id:code,label:'ノベルティ交換券',novelty:nv,issued:fmt(t),expires:fmt(e2),status:'unused'});
   rc();document.getElementById('pcc').textContent=code;sp('pop-cp',2500);
   notifs.unshift({t:'pu',i:'🎟',m:'クーポン '+code+' が発行されました！',id:'c'+cs});rn();
 }
@@ -1226,9 +1238,18 @@ function confScan(){
   document.getElementById('sres').classList.remove('on');
   document.getElementById('qin').innerHTML='<div style="font-size:48px;">✓</div>';sc=false;
 }
-function jv(btn){
+async function jv(btn){
   if(btn.classList.contains('jd'))return;
-  btn.classList.add('jd');btn.textContent='登録済み';btn.disabled=true;
+  const card=btn.closest('[data-id]');
+  const volId=card?.dataset?.id||null;
+  const volTitle=card?.dataset?.title||card?.querySelector('.vt')?.textContent||'ボランティア';
+  const ptAmount=parseInt(card?.dataset?.pt||0);
+  btn.classList.add('jd');btn.textContent='登録中...';btn.disabled=true;
+  if(volId&&sbClient){
+    const ok=await joinVolDB(volId,volTitle,ptAmount);
+    if(ok&&ptAmount>0) ap(ptAmount,volTitle,false);
+  }
+  btn.textContent='登録済み';
   const n=document.getElementById('jntf');n.classList.add('on');setTimeout(()=>n.classList.remove('on'),3000);
 }
 function gf(){
@@ -1264,8 +1285,7 @@ function sendT(){
   ap(1,'ありがとうをもらった',false);
   document.getElementById('stk').textContent=parseInt(document.getElementById('stk').textContent)+1;
   const n=document.getElementById('tntf');n.textContent=r.e+' '+r.n+'にありがとうを送りました！';n.classList.add('on');setTimeout(()=>n.classList.remove('on'),3000);
-  // DB連携（to_user_idはデモではnull）
-  if(sbClient) sendThanksDB(null,msg);
+  if(sbClient) sendThanksDB(r.id||null,msg);
   const feed=document.getElementById('tfeed');
   const card=document.createElement('div');card.className='tc2';
   card.innerHTML='<div class="th2"><div class="tav">'+oe+'</div><div><div class="tn">'+document.getElementById('hnick').textContent+' より</div><div class="tgb">'+document.getElementById('hgrade').textContent+'</div></div><div class="ttm">たった今</div></div>'+
@@ -1307,28 +1327,14 @@ function ram(){
   h+='<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;"><span>地域ボランティア</span><span style="color:var(--teal-600);font-weight:500;">14名</span></div>';
   el.innerHTML=h;
 }
-let calYear=2026,calMonth=3,calFilterType='all';
-const calEvents=[
-  {date:'2026-04-03',type:'vol',title:'入学式 会場設営',time:'9:00〜11:00',pt:'+3 WaPT',joined:false},
-  {date:'2026-04-07',type:'vol',title:'登下校 見守りサポート',time:'週1回〜OK',pt:'+2 WaPT',joined:true},
-  {date:'2026-04-10',type:'info',title:'1年生歓迎行事',time:'10:00〜12:00',pt:'',joined:false},
-  {date:'2026-04-10',type:'vol',title:'図書室 読み聞かせ',time:'10:00〜11:30',pt:'+2 WaPT',joined:false},
-  {date:'2026-04-15',type:'info',title:'PTA役員会',time:'19:00〜20:30',pt:'',joined:false},
-  {date:'2026-04-20',type:'info',title:'授業参観・懇談会',time:'13:30〜16:00',pt:'',joined:false},
-  {date:'2026-04-24',type:'vol',title:'花壇整備ボランティア',time:'9:00〜10:30',pt:'+2 WaPT',joined:false},
-  {date:'2026-05-03',type:'info',title:'憲法記念日（休日）',time:'',pt:'',joined:false},
-  {date:'2026-05-10',type:'vol',title:'図書室 読み聞かせ',time:'10:00〜11:30',pt:'+2 WaPT',joined:false},
-  {date:'2026-05-15',type:'info',title:'PTA役員会',time:'19:00〜20:30',pt:'',joined:false},
-  {date:'2026-05-24',type:'vol',title:'バザー 運営サポート',time:'9:00〜15:00',pt:'+3 WaPT',joined:false},
-  {date:'2026-06-05',type:'info',title:'運動会',time:'8:30〜15:00',pt:'',joined:false},
-  {date:'2026-06-04',type:'vol',title:'運動会 準備ボランティア',time:'15:00〜17:00',pt:'+3 WaPT',joined:false},
-];
+let calYear=new Date().getFullYear(),calMonth=new Date().getMonth()+1,calFilterType='all';
+let calEvents=[];
 
 function calMove(d){
   calMonth+=d;
   if(calMonth>12){calMonth=1;calYear++;}
   if(calMonth<1){calMonth=12;calYear--;}
-  renderCal();
+  loadCalEventsDB();
 }
 
 function calFilter(type){
@@ -1412,14 +1418,72 @@ function renderCal(){
   });
 }
 
-function calJoin(btn,idx){
+async function calJoin(btn,idx){
+  const e=calEvents[idx];if(!e)return;
+  btn.disabled=true;btn.textContent='登録中...';
+  if(e.volunteer_id&&sbClient){
+    const ptAmount=parseInt((e.pt||'').replace(/[^0-9]/g,''))||0;
+    const ok=await joinVolDB(e.volunteer_id,e.title,ptAmount);
+    if(ok&&ptAmount>0) ap(ptAmount,e.title,false);
+  }
   calEvents[idx].joined=true;
-  btn.textContent='登録済み';
-  btn.disabled=true;
-  btn.style.opacity='.5';
+  btn.textContent='登録済み';btn.style.opacity='.5';
 }
 
-function ra(){rn();rs();rc();rfb();rrec();bsg();ram();renderCal();}
+async function loadRecsDB(){
+  if(!sbClient)return;
+  const{data:{user}}=await sbClient.auth.getUser().catch(()=>({data:{user:null}}));
+  if(!user)return;
+  const{data}=await sbClient.from('profiles').select('id,nickname,emoji,grades').neq('id',user.id).order('nickname');
+  if(!data||!data.length)return;
+  recs.length=0;
+  data.forEach(p=>{
+    const g=p.grades||'';
+    const gn=[];for(let i=1;i<=6;i++)if(g.includes(i+'年生'))gn.push(i);
+    recs.push({id:p.id,e:p.emoji||'👤',n:(p.nickname||'—')+'さん',g,gn});
+  });
+  rfb();rrec();
+}
+
+async function loadVolsDB(){
+  const list=document.getElementById('vol-list');if(!list)return;
+  if(!sbClient){list.innerHTML='<div style="text-align:center;padding:1.5rem;font-size:13px;color:var(--cs);">ログインが必要です</div>';return;}
+  const{data}=await sbClient.from('volunteers').select('*').in('status',['open','soon','full']).order('created_at');
+  if(!data||!data.length){list.innerHTML='<div style="text-align:center;padding:1.5rem;font-size:13px;color:var(--cs);">募集中のボランティアはありません</div>';return;}
+  const sc={open:'to',soon:'ts',full:'tf'};
+  const sl={open:'募集中',soon:'締切間近',full:'定員満了'};
+  list.innerHTML=data.map(v=>{
+    const isFull=v.status==='full';
+    return '<div class="vc" data-id="'+v.id+'" data-pt="'+(v.pt_reward||0)+'" data-title="'+(v.title||'').replace(/"/g,'&quot;')+'">'+
+      '<div class="vh"><div class="vt">'+(v.title||'')+'</div><span class="vtg '+(sc[v.status]||'to')+'">'+(sl[v.status]||v.status)+'</span></div>'+
+      '<div class="vm"><span>'+(v.date_text||'')+'</span>'+(v.capacity?'<span>定員 '+v.capacity+'名</span>':'')+'</div>'+
+      '<div class="vf"><div class="vp">'+(v.pt_reward?'+'+v.pt_reward+' WaPT':'')+'</div>'+
+      (isFull?'<button class="bj" disabled>満員</button>':'<button class="bj" onclick="jv(this)">参加する</button>')+
+      '</div></div>';
+  }).join('');
+}
+
+async function loadCalEventsDB(){
+  if(!sbClient){renderCal();return;}
+  const y=calYear,m=calMonth;
+  const from=y+'-'+String(m).padStart(2,'0')+'-01';
+  const lastDay=new Date(y,m,0).getDate();
+  const to=y+'-'+String(m).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+  const[volRes,evtRes]=await Promise.all([
+    sbClient.from('volunteers').select('id,title,date_text,pt_reward,status').in('status',['open','soon','full']),
+    sbClient.from('calendar_events').select('*').gte('date',from).lte('date',to)
+  ]);
+  calEvents.length=0;
+  (volRes.data||[]).forEach(v=>{
+    calEvents.push({volunteer_id:v.id,date:from,type:'vol',title:v.title||'',time:v.date_text||'',pt:v.pt_reward?'+'+v.pt_reward+' WaPT':'',joined:false});
+  });
+  (evtRes.data||[]).forEach(e=>{
+    calEvents.push({date:e.date,type:e.type||'info',title:e.title||'',time:e.time_text||'',pt:e.pt||'',joined:false});
+  });
+  renderCal();
+}
+
+function ra(){rn();rs();rc();rfb();rrec();bsg();ram();}
 </script>
 </body>
 </html>
