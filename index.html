@@ -560,6 +560,8 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
 <script>
 const PPS=5,SPC=5;
 let pt=0,si=0,sc=false,sr=-1,af='all',cs=1,os=1,oe='🌸',og2=[];
+let pendingQrId=new URLSearchParams(location.search).get('qr_id');
+let pendingScanData=null;
 let cups=[{id:'NMC-0000',label:'ノベルティ交換券 #1',novelty:'オリジナルトートバッグ',issued:'2026/01/20',expires:'2026/06/30',status:'used'}];
 let notifs=[
   {t:'tl',i:'🎉',m:'入学式 会場設営の募集が始まりました！',id:'n1'},
@@ -872,17 +874,22 @@ async function joinVolDB(volId,volTitle,ptAmount){
 }
 
 // ======== QR参加記録 ========
-async function confirmScanDB(eventName,ptAmount){
+async function confirmScanDB(eventName,ptAmount,qrCodeId){
   if(!sbClient)return;
   const {data:{user}}=await sbClient.auth.getUser();
   if(!user)return;
   await sbClient.from('participations').insert({
     user_id:user.id,
     volunteer_id:null,
+    qr_code_id:qrCodeId||null,
     pt_earned:ptAmount,
     note:eventName
   });
   await addPtDB(user.id,ptAmount,'qr_scan',eventName);
+  if(qrCodeId){
+    const{data:qr}=await sbClient.from('qr_codes').select('scan_count').eq('id',qrCodeId).single();
+    await sbClient.from('qr_codes').update({scan_count:(qr?.scan_count||0)+1}).eq('id',qrCodeId);
+  }
 }
 
 // ======== ありがとう送信 ========
@@ -984,6 +991,7 @@ function showMain(){
   el.style.display='block';el.classList.add('on');
   bsg();ra();
   if(sbClient){loadThanksDB();loadCouponsDB();}
+  if(pendingQrId){const qid=pendingQrId;pendingQrId=null;setTimeout(()=>handleQRScan(qid),400);}
 }
 
 function showLogin(){
@@ -1170,6 +1178,7 @@ function doScan(){
   document.getElementById('qin').innerHTML='<div class="qsl"></div>';
   setTimeout(()=>{
     const ev=evs[si%evs.length];si++;
+    pendingScanData={name:ev.n,pt:ev.p,qrCodeId:null};
     document.getElementById('rname').textContent=ev.n;
     document.getElementById('rdate').textContent=ev.d;
     document.getElementById('rpt').textContent='+'+ev.p+' WaPT';
@@ -1178,12 +1187,42 @@ function doScan(){
     btn.textContent='もう一度スキャン';btn.disabled=false;
   },1800);
 }
+
+async function handleQRScan(qrId){
+  if(!sbClient||!qrId)return;
+  st('scan');
+  sc=true;
+  const btn=document.getElementById('qbtn');
+  btn.textContent='QRコード確認中...';btn.disabled=true;
+  document.getElementById('qin').innerHTML='<div class="qsl"></div>';
+  document.getElementById('sres').classList.remove('on');
+  const{data,error}=await sbClient.from('qr_codes').select('*').eq('id',qrId).single();
+  btn.textContent='QRコードをスキャンする';btn.disabled=false;
+  if(error||!data){
+    document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--coral-600);padding:8px;">QRコードが見つかりません</div>';
+    sc=false;return;
+  }
+  if(data.expires_at&&new Date(data.expires_at)<new Date()){
+    document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--coral-600);padding:8px;">このQRコードは有効期限切れです</div>';
+    sc=false;return;
+  }
+  pendingScanData={name:data.title,pt:data.pt_reward||3,qrCodeId:qrId};
+  document.getElementById('rname').textContent=data.title;
+  document.getElementById('rdate').textContent=data.date_text||'';
+  document.getElementById('rpt').textContent='+'+(data.pt_reward||3)+' WaPT';
+  document.getElementById('sres').classList.add('on');
+  document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--teal-600);padding:8px;">読み取り完了</div>';
+  if(history.replaceState)history.replaceState({},'',location.pathname);
+  sc=false;
+}
+
 function confScan(){
   const p=parseInt(document.getElementById('rpt').textContent.replace(/[^0-9]/g,''));
   const name=document.getElementById('rname').textContent;
+  const qrId=pendingScanData?.qrCodeId||null;
   ap(p,name,true);
-  // DB連携
-  confirmScanDB(name,p);
+  confirmScanDB(name,p,qrId);
+  pendingScanData=null;
   document.getElementById('sres').classList.remove('on');
   document.getElementById('qin').innerHTML='<div style="font-size:48px;">✓</div>';sc=false;
 }
