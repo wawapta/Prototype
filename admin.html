@@ -287,14 +287,14 @@ tr:hover td{background:var(--g50);}
         <div class="table-header">
           <div class="search-box">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4a6a8a" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input placeholder="ニックネーム・メールで検索">
+            <input id="user-search" placeholder="ニックネーム・メールで検索" oninput="renderUsers()">
           </div>
           <div style="display:flex;gap:8px;">
-            <select style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-              <option>全学年</option><option>1年生</option><option>2年生</option><option>3年生</option><option>4年生</option><option>5年生</option><option>6年生</option><option>地域</option>
+            <select id="user-filter-grade" onchange="renderUsers()" style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="">全学年</option><option>1年生</option><option>2年生</option><option>3年生</option><option>4年生</option><option>5年生</option><option>6年生</option><option>地域</option>
             </select>
-            <select style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-              <option>全ロール</option><option>管理者</option><option>一般</option>
+            <select id="user-filter-role" onchange="renderUsers()" style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="">全ロール</option><option value="admin">管理者</option><option value="member">一般</option>
             </select>
           </div>
         </div>
@@ -641,46 +641,20 @@ tr:hover td{background:var(--g50);}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
             <div class="section-title">投稿済みのお知らせ</div>
           </div>
-          <div class="notif-card">
-            <div class="notif-header">
-              <div><div class="notif-title">入学式 会場設営の募集を開始しました</div><div class="notif-meta">2026/03/20 · 全員向け</div></div>
-              <span class="badge open">公開中</span>
-            </div>
-            <div class="notif-body">4月3日（木）の入学式に向けて、会場設営ボランティアを募集します。参加で +3 WaPT付与！</div>
-            <div style="display:flex;gap:6px;margin-top:10px;">
-              <button class="btn" style="font-size:12px;padding:4px 10px;">編集</button>
-              <button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="if(confirm('このお知らせを削除しますか？')){this.closest('.notif-card').style.opacity='.4';this.textContent='削除済み';this.disabled=true;}">削除</button>
-            </div>
-          </div>
-          <div class="notif-card">
-            <div class="notif-header">
-              <div><div class="notif-title">3月の活動報告</div><div class="notif-meta">2026/03/05 · 全員向け</div></div>
-              <span class="badge open">公開中</span>
-            </div>
-            <div class="notif-body">今月は18名の保護者・地域の方にボランティア参加いただきました。ありがとうございました！</div>
-            <div style="display:flex;gap:6px;margin-top:10px;">
-              <button class="btn" style="font-size:12px;padding:4px 10px;">編集</button>
-              <button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="if(confirm('このお知らせを削除しますか？')){this.closest('.notif-card').style.opacity='.4';this.textContent='削除済み';this.disabled=true;}">削除</button>
-            </div>
-          </div>
+          <div id="notice-list"><div style="text-align:center;padding:1.5rem;color:var(--ts);">読み込み中...</div></div>
         </div>
         <div class="card">
           <div class="card-title">新しいお知らせを投稿</div>
-          <div class="field"><label>タイトル</label><input placeholder="例：バザーボランティア募集のお知らせ"></div>
-          <div class="field"><label>本文</label><textarea rows="4" placeholder="お知らせの内容を入力してください"></textarea></div>
+          <div class="field"><label>タイトル</label><input id="notice-title" placeholder="例：バザーボランティア募集のお知らせ" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);"></div>
+          <div class="field"><label>本文</label><textarea id="notice-body" rows="4" placeholder="お知らせの内容を入力してください" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);resize:vertical;"></textarea></div>
           <div class="field"><label>送信対象</label>
-            <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-              <option>全員</option><option>保護者のみ</option><option>地域ボランティアのみ</option><option>管理者のみ</option>
+            <select id="notice-target" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="all">全員</option><option value="parent">保護者のみ</option><option value="local">地域ボランティアのみ</option><option value="admin">管理者のみ</option>
             </select>
           </div>
-          <div class="field"><label>プッシュ通知も送る</label>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-              <div class="switch on" onclick="this.classList.toggle('on');this.classList.toggle('off');"><div class="switch-knob"></div></div>
-              <span style="font-size:13px;color:var(--ts);">アプリに通知を送信する</span>
-            </div>
-          </div>
-          <button class="btn primary" style="width:100%;" onclick="showSaved('notice-saved')">投稿する</button>
+          <button class="btn primary" style="width:100%;" onclick="postNotice()">投稿する</button>
           <div id="notice-saved" style="display:none;margin-top:8px;padding:8px 12px;background:var(--g50);border-radius:8px;font-size:13px;color:var(--g600);">✓ 投稿しました</div>
+          <div id="notice-error" style="display:none;margin-top:8px;padding:8px 12px;background:var(--r50);border-radius:8px;font-size:13px;color:var(--r600);"></div>
         </div>
       </div>
     </div>
@@ -889,6 +863,8 @@ function nav(name){
   if(tabs[name].action){btn.style.display='';btn.textContent=tabs[name].action;btn.setAttribute('onclick',tabs[name].actionFn);}
   else btn.style.display='none';
   if(name==='users') loadUsers();
+  if(name==='points'){loadPtUsers();loadPtLog();}
+  if(name==='notice') loadNotices();
 }
 
 async function loadUsers(){
@@ -924,7 +900,21 @@ function renderUsers(){
     tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--ts);">ユーザーがいません</td></tr>';
     return;
   }
-  users.forEach((u,i)=>{
+  const q=(document.getElementById('user-search')?.value||'').toLowerCase();
+  const grade=document.getElementById('user-filter-grade')?.value||'';
+  const role=document.getElementById('user-filter-role')?.value||'';
+  const filtered=users.filter((u,i)=>{
+    if(q&&!u.n.toLowerCase().includes(q)&&!u.email.toLowerCase().includes(q))return false;
+    if(grade&&u.grade!==grade)return false;
+    if(role&&u.role!==role)return false;
+    return true;
+  });
+  if(filtered.length===0){
+    tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--ts);">該当するユーザーがいません</td></tr>';
+    return;
+  }
+  filtered.forEach((u,_)=>{
+    const i=users.indexOf(u);
     const tr=document.createElement('tr');
     tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:8px;"><div style="font-size:18px;">${u.e}</div><div><div style="font-weight:500;">${u.n}</div><div style="font-size:11px;color:var(--ts);">${u.email}</div></div></div></td>`+
       `<td>${u.grade}</td><td style="font-weight:500;">${u.pt} PT</td><td>${u.vol}回</td><td>${u.date}</td>`+
@@ -1183,41 +1173,91 @@ function setPtVal(v){
   document.getElementById('pt-val').value=v;
 }
 
-function grantPoints(){
+async function loadPtUsers(){
+  const sel=document.getElementById('pt-user');
+  Object.keys(ptUsers).forEach(k=>delete ptUsers[k]);
+  if(!window.adminClient){renderPtBalance();return;}
+  const{data,error}=await window.adminClient.from('profiles').select('id,nickname,emoji,total_pt').order('nickname');
+  if(error||!data)return;
+  sel.innerHTML='<option value="">ユーザーを選択</option>';
+  data.forEach(p=>{
+    const label=(p.emoji||'👤')+' '+(p.nickname||'(未設定)');
+    ptUsers[p.id]={label,pt:p.total_pt||0};
+    const opt=document.createElement('option');
+    opt.value=p.id;
+    opt.text=label+'（現在 '+(p.total_pt||0)+' PT）';
+    sel.appendChild(opt);
+  });
+  renderPtBalance();
+}
+
+async function loadPtLog(){
+  if(!window.adminClient)return;
+  const tbody=document.getElementById('pt-log-tbody');
+  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:1rem;color:var(--ts);">読み込み中...</td></tr>';
+  const{data,error}=await window.adminClient.from('point_logs').select('*,profiles(nickname,emoji)').order('created_at',{ascending:false}).limit(50);
+  if(error){tbody.innerHTML='<tr><td colspan="6" style="color:var(--r600);padding:1rem;">読み込みエラー</td></tr>';return;}
+  ptLog.length=0;
+  (data||[]).forEach(l=>{
+    ptLog.push({
+      date:l.created_at?l.created_at.slice(0,10):'',
+      userKey:l.user_id,
+      pt:l.amount,
+      reason:l.reason||'other',
+      note:l.note||'',
+      by:l.granted_by||'管理者',
+      profileName:(l.profiles?.emoji||'👤')+' '+(l.profiles?.nickname||'')
+    });
+  });
+  renderPtLog();
+}
+
+async function grantPoints(){
   const userKey=document.getElementById('pt-user').value;
   const val=parseInt(document.getElementById('pt-val').value);
   const reason=document.getElementById('pt-reason').value;
   const note=document.getElementById('pt-note').value;
   const done=document.getElementById('pt-done');
   const err=document.getElementById('pt-error');
+  const btn=document.querySelector('button[onclick="grantPoints()"]');
   done.style.display='none';err.style.display='none';
 
   if(!userKey){err.textContent='ユーザーを選択してください';err.style.display='block';return;}
   if(!val||isNaN(val)){err.textContent='付与ポイントを入力してください';err.style.display='block';return;}
-  if(ptUsers[userKey].pt+val<0&&!confirm('付与後のポイントがマイナスになります。続けますか？'))return;
+  if(ptUsers[userKey]&&ptUsers[userKey].pt+val<0&&!confirm('付与後のポイントがマイナスになります。続けますか？'))return;
 
-  ptUsers[userKey].pt+=val;
+  if(btn){btn.disabled=true;btn.textContent='処理中...';}
+
+  if(window.adminClient){
+    const{error:e1}=await window.adminClient.from('point_logs').insert({user_id:userKey,amount:val,reason,note:note||''});
+    if(e1){err.textContent='保存に失敗しました: '+e1.message;err.style.display='block';if(btn){btn.disabled=false;btn.textContent='ポイントを付与する';}return;}
+    const{data:prof}=await window.adminClient.from('profiles').select('total_pt').eq('id',userKey).single();
+    const newPt=(prof?.total_pt||0)+val;
+    await window.adminClient.from('profiles').update({total_pt:newPt}).eq('id',userKey);
+    if(ptUsers[userKey])ptUsers[userKey].pt=newPt;
+  } else {
+    if(ptUsers[userKey])ptUsers[userKey].pt+=val;
+  }
+
   const now=new Date();
   const dateStr=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
-  ptLog.unshift({date:dateStr,userKey,pt:val,reason,note,by:'基洋さん'});
-
+  const uLabel=ptUsers[userKey]?.label||'';
+  ptLog.unshift({date:dateStr,userKey,pt:val,reason,note,by:'管理者',profileName:uLabel});
   renderPtBalance();
   renderPtLog();
 
   const sign=val>0?'+':'';
-  done.textContent='✓ '+ptUsers[userKey].label+' に '+sign+val+' WaPT を付与しました（残高：'+ptUsers[userKey].pt+' PT）';
+  done.textContent='✓ '+uLabel+' に '+sign+val+' WaPT を付与しました（残高：'+(ptUsers[userKey]?.pt||0)+' PT）';
   done.style.display='block';
   setTimeout(()=>done.style.display='none',4000);
 
   document.getElementById('pt-val').value='';
   document.getElementById('pt-note').value='';
+  if(btn){btn.disabled=false;btn.textContent='ポイントを付与する';}
 
-  // ユーザー選択の残高表示を更新
   const sel=document.getElementById('pt-user');
   Array.from(sel.options).forEach(opt=>{
-    if(opt.value&&ptUsers[opt.value]){
-      opt.text=ptUsers[opt.value].label+'（現在 '+ptUsers[opt.value].pt+' PT）';
-    }
+    if(opt.value&&ptUsers[opt.value])opt.text=ptUsers[opt.value].label+'（現在 '+ptUsers[opt.value].pt+' PT）';
   });
 }
 
@@ -1254,7 +1294,7 @@ function renderPtLog(){
     const color=l.pt>0?'var(--a400)':'var(--r600)';
     return '<tr>'+
       '<td style="color:var(--ts);">'+l.date+'</td>'+
-      '<td style="font-weight:500;">'+ptUsers[l.userKey].label+'</td>'+
+      '<td style="font-weight:500;">'+(l.profileName||ptUsers[l.userKey]?.label||l.userKey)+'</td>'+
       '<td style="font-weight:500;color:'+color+';">'+sign+l.pt+' WaPT</td>'+
       '<td><span class="badge '+(l.pt<0?'':'open')+'" style="'+(l.pt<0?'background:var(--r50);color:var(--r600);':'')+'">'+ptReasonLabels[l.reason]+'</span></td>'+
       '<td style="color:var(--ts);">'+(l.note||'—')+'</td>'+
@@ -1267,6 +1307,78 @@ function filterPtLog(val){ptLogFilter=val;renderPtLog();}
 
 renderPtBalance();
 renderPtLog();
+
+// ======== お知らせ管理 ========
+const targetLabels={all:'全員',parent:'保護者のみ',local:'地域ボランティアのみ',admin:'管理者のみ'};
+let noticeList=[];
+
+async function loadNotices(){
+  const el=document.getElementById('notice-list');
+  if(!window.adminClient){el.innerHTML='<div style="color:var(--ts);padding:1rem;">Supabase未接続</div>';return;}
+  el.innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ts);">読み込み中...</div>';
+  const{data,error}=await window.adminClient.from('notices').select('*').order('created_at',{ascending:false});
+  if(error){el.innerHTML='<div style="color:var(--r600);padding:1rem;">読み込みエラー: '+error.message+'</div>';return;}
+  noticeList=data||[];
+  renderNotices();
+}
+
+function renderNotices(){
+  const el=document.getElementById('notice-list');
+  if(!noticeList.length){el.innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ts);">お知らせはありません</div>';return;}
+  el.innerHTML=noticeList.map(n=>{
+    const d=n.created_at?n.created_at.slice(0,10):'';
+    const tl=targetLabels[n.target]||n.target||'全員';
+    return '<div class="notif-card">'+
+      '<div class="notif-header">'+
+        '<div><div class="notif-title">'+escHtml(n.title||'')+'</div><div class="notif-meta">'+d+' · '+tl+'</div></div>'+
+        '<span class="badge open">公開中</span>'+
+      '</div>'+
+      '<div class="notif-body">'+escHtml(n.body||n.content||'')+'</div>'+
+      '<div style="display:flex;gap:6px;margin-top:10px;">'+
+        '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="deleteNotice(\''+n.id+'\')">削除</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+async function postNotice(){
+  const title=document.getElementById('notice-title').value.trim();
+  const body=document.getElementById('notice-body').value.trim();
+  const target=document.getElementById('notice-target').value;
+  const saved=document.getElementById('notice-saved');
+  const errEl=document.getElementById('notice-error');
+  saved.style.display='none';errEl.style.display='none';
+
+  if(!title){errEl.textContent='タイトルを入力してください';errEl.style.display='block';return;}
+  if(!body){errEl.textContent='本文を入力してください';errEl.style.display='block';return;}
+
+  const btn=document.querySelector('button[onclick="postNotice()"]');
+  if(btn){btn.disabled=true;btn.textContent='投稿中...';}
+
+  if(window.adminClient){
+    const{data,error}=await window.adminClient.from('notices').insert({title,body,target}).select().single();
+    if(error){errEl.textContent='投稿に失敗しました: '+error.message;errEl.style.display='block';if(btn){btn.disabled=false;btn.textContent='投稿する';}return;}
+    noticeList.unshift(data);
+  }
+  renderNotices();
+  document.getElementById('notice-title').value='';
+  document.getElementById('notice-body').value='';
+  saved.style.display='block';
+  setTimeout(()=>saved.style.display='none',3000);
+  if(btn){btn.disabled=false;btn.textContent='投稿する';}
+}
+
+async function deleteNotice(id){
+  if(!confirm('このお知らせを削除しますか？'))return;
+  if(window.adminClient){
+    const{error}=await window.adminClient.from('notices').delete().eq('id',id);
+    if(error){alert('削除に失敗しました: '+error.message);return;}
+  }
+  noticeList=noticeList.filter(n=>n.id!==id);
+  renderNotices();
+}
 let manualCoupSeq=100;
 const typeLabels={volunteer:'ボランティア参加',event:'イベント限定',register:'登録お礼',other:'その他'};
 const userLabels={sakura:'🌸 さくらさん',himawari:'🌻 ひまわりさん',yotsuba:'🍀 よつばさん',nami:'🌊 なみさん',fukurou:'🦉 ふくろうさん',hachi:'🐝 はちみつさん',tulip:'🌷 チューリップさん',kuma:'🐻 くまさん'};
