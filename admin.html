@@ -212,38 +212,32 @@ tr:hover td{background:var(--g50);}
     <div id="tab-dashboard" class="tab-content on">
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-num">42</div>
+          <div class="stat-num" id="dash-stat-users">—</div>
           <div class="stat-label">登録者数</div>
-          <div class="stat-delta up">↑ 先月比 +5名</div>
+          <div class="stat-delta" id="dash-delta-users"></div>
         </div>
         <div class="stat-card">
-          <div class="stat-num">18</div>
+          <div class="stat-num" id="dash-stat-participants">—</div>
           <div class="stat-label">今月参加者数</div>
-          <div class="stat-delta up">↑ 先月比 +3名</div>
+          <div class="stat-delta" id="dash-delta-participants"></div>
         </div>
         <div class="stat-card">
-          <div class="stat-num">67</div>
+          <div class="stat-num" id="dash-stat-thanks">—</div>
           <div class="stat-label">ありがとう送受信数</div>
-          <div class="stat-delta up">↑ 先月比 +12件</div>
+          <div class="stat-delta" id="dash-delta-thanks"></div>
         </div>
         <div class="stat-card">
-          <div class="stat-num">8</div>
-          <div class="stat-label">クーポン発行数</div>
-          <div class="stat-delta down">↓ 先月比 -2件</div>
+          <div class="stat-num" id="dash-stat-coupons">—</div>
+          <div class="stat-label">未使用クーポン数</div>
+          <div class="stat-delta" id="dash-delta-coupons"></div>
         </div>
       </div>
 
       <div class="chart-row">
         <div class="card">
-          <div class="card-title">学年別参加者数</div>
-          <div class="bar-chart">
-            <div class="bar-row"><div class="bar-label">1年生</div><div class="bar-track"><div class="bar-fill" style="width:30%"></div></div><div class="bar-val">3名</div></div>
-            <div class="bar-row"><div class="bar-label">2年生</div><div class="bar-track"><div class="bar-fill" style="width:50%"></div></div><div class="bar-val">5名</div></div>
-            <div class="bar-row"><div class="bar-label">3年生</div><div class="bar-track"><div class="bar-fill" style="width:70%"></div></div><div class="bar-val">7名</div></div>
-            <div class="bar-row"><div class="bar-label">4年生</div><div class="bar-track"><div class="bar-fill" style="width:60%"></div></div><div class="bar-val">6名</div></div>
-            <div class="bar-row"><div class="bar-label">5年生</div><div class="bar-track"><div class="bar-fill" style="width:40%"></div></div><div class="bar-val">4名</div></div>
-            <div class="bar-row"><div class="bar-label">6年生</div><div class="bar-track"><div class="bar-fill" style="width:30%"></div></div><div class="bar-val">3名</div></div>
-            <div class="bar-row"><div class="bar-label">地域</div><div class="bar-track"><div class="bar-fill" style="width:30%;background:var(--b600)"></div></div><div class="bar-val">14名</div></div>
+          <div class="card-title">学年別登録者数</div>
+          <div class="bar-chart" id="dash-grade-chart">
+            <div style="text-align:center;padding:1rem;color:var(--ts);">読み込み中...</div>
           </div>
         </div>
         <div class="card">
@@ -255,7 +249,7 @@ tr:hover td{background:var(--g50);}
               <circle cx="60" cy="60" r="45" fill="none" stroke="#fde9a0" stroke-width="18" stroke-dasharray="85 197" stroke-dashoffset="-169" transform="rotate(-90 60 60)"/>
               <circle cx="60" cy="60" r="45" fill="none" stroke="#d5ceff" stroke-width="18" stroke-dasharray="28 254" stroke-dashoffset="-254" transform="rotate(-90 60 60)"/>
               <text x="60" y="56" text-anchor="middle" font-size="11" fill="#4a6a8a">合計</text>
-              <text x="60" y="70" text-anchor="middle" font-size="16" font-weight="600" fill="#0c2d54">282</text>
+              <text x="60" y="70" text-anchor="middle" font-size="16" font-weight="600" fill="#0c2d54" id="dash-pt-total">—</text>
             </svg>
             <div class="legend">
               <div class="legend-row"><div class="legend-dot" style="background:var(--g600)"></div>ボランティア参加 60%</div>
@@ -270,12 +264,8 @@ tr:hover td{background:var(--g50);}
         <div class="card-title">最近の活動ログ</div>
         <table>
           <thead><tr><th>日時</th><th>ユーザー</th><th>アクション</th><th>詳細</th></tr></thead>
-          <tbody>
-            <tr><td>03/20 14:32</td><td>🌸 さくらさん</td><td>QR参加</td><td>入学式 会場設営 +3PT</td></tr>
-            <tr><td>03/20 11:15</td><td>🌻 ひまわりさん</td><td>ありがとう受信</td><td>よつばさんから +1PT</td></tr>
-            <tr><td>03/19 16:08</td><td>🍀 よつばさん</td><td>クーポン使用</td><td>NMC-0003 使用済み</td></tr>
-            <tr><td>03/19 10:22</td><td>🌊 なみさん</td><td>新規登録</td><td>地域ボランティア</td></tr>
-            <tr><td>03/18 09:44</td><td>🦉 ふくろうさん</td><td>QR参加</td><td>図書室 整理 +2PT</td></tr>
+          <tbody id="dash-activity-tbody">
+            <tr><td colspan="4" style="text-align:center;padding:1rem;color:var(--ts);">読み込み中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -310,35 +300,12 @@ tr:hover td{background:var(--g50);}
       <div class="table-wrap">
         <div class="table-header">
           <div style="font-size:14px;font-weight:500;color:var(--t);">ボランティア一覧</div>
-          <button class="btn primary" onclick="openModal('modal-vol')">＋ 新規作成</button>
+          <button class="btn primary" onclick="openVolModal(null)">＋ 新規作成</button>
         </div>
         <table>
           <thead><tr><th>活動名</th><th>日時</th><th>定員</th><th>参加者数</th><th>付与PT</th><th>状態</th><th>操作</th></tr></thead>
-          <tbody>
-            <tr>
-              <td style="font-weight:500;">入学式 会場設営</td>
-              <td>4月3日（木）9:00〜11:00</td><td>8名</td><td>5名</td><td>+3 PT</td>
-              <td><span class="badge open">募集中</span></td>
-              <td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal('modal-vol')">編集</button></td>
-            </tr>
-            <tr>
-              <td style="font-weight:500;">図書室 読み聞かせ</td>
-              <td>毎月第2木曜 10:00〜</td><td>4名</td><td>4名</td><td>+2 PT</td>
-              <td><span class="badge full">定員満了</span></td>
-              <td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal('modal-vol')">編集</button></td>
-            </tr>
-            <tr>
-              <td style="font-weight:500;">登下校 見守りサポート</td>
-              <td>4月7日〜 週1回〜OK</td><td>10名</td><td>7名</td><td>+2 PT</td>
-              <td><span class="badge soon">締切間近</span></td>
-              <td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal('modal-vol')">編集</button></td>
-            </tr>
-            <tr>
-              <td style="font-weight:500;">バザー 運営サポート</td>
-              <td>5月24日（土）9:00〜15:00</td><td>12名</td><td>12名</td><td>+3 PT</td>
-              <td><span class="badge full">定員満了</span></td>
-              <td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal('modal-vol')">編集</button></td>
-            </tr>
+          <tbody id="vol-table-body">
+            <tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--ts);">読み込み中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -662,24 +629,25 @@ tr:hover td{background:var(--g50);}
 <!-- モーダル：ボランティア登録 -->
 <div class="modal-overlay" id="modal-vol">
   <div class="modal">
-    <div class="modal-title">ボランティア活動を登録・編集</div>
-    <div class="field"><label>活動名</label><input placeholder="例：運動会 準備ボランティア" value="入学式 会場設営"></div>
-    <div class="field"><label>日時</label><input placeholder="例：4月3日（木）9:00〜11:00" value="4月3日（木）9:00〜11:00"></div>
-    <div class="field"><label>定員</label><input type="number" value="8"></div>
+    <div class="modal-title" id="vol-modal-title">ボランティア活動を登録</div>
+    <div class="field"><label>活動名</label><input id="vol-title" placeholder="例：運動会 準備ボランティア" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);"></div>
+    <div class="field"><label>日時</label><input id="vol-date" placeholder="例：4月3日（木）9:00〜11:00" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);"></div>
+    <div class="field"><label>定員</label><input id="vol-capacity" type="number" min="1" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);"></div>
     <div class="field"><label>付与ポイント</label>
-      <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-        <option>+1 PT</option><option>+2 PT</option><option selected>+3 PT</option><option>+5 PT</option>
+      <select id="vol-pt" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+        <option value="1">+1 PT</option><option value="2">+2 PT</option><option value="3">+3 PT</option><option value="5">+5 PT</option>
       </select>
     </div>
     <div class="field"><label>募集状態</label>
-      <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-        <option selected>募集中</option><option>締切間近</option><option>定員満了</option><option>非公開</option>
+      <select id="vol-status" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+        <option value="open">募集中</option><option value="soon">締切間近</option><option value="full">定員満了</option><option value="hidden">非公開</option>
       </select>
     </div>
+    <div id="vol-error" style="display:none;padding:8px 12px;background:var(--r50);border-radius:8px;font-size:13px;color:var(--r600);margin-bottom:8px;"></div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('modal-vol')">キャンセル</button>
-      <button class="btn danger" onclick="if(confirm('このボランティア活動を削除しますか？'))closeModal('modal-vol')">削除</button>
-      <button class="btn primary" onclick="closeModal('modal-vol')">保存する</button>
+      <button class="btn danger" id="vol-delete-btn" style="display:none;" onclick="deleteVolunteer()">削除</button>
+      <button class="btn primary" id="vol-save-btn" onclick="saveVolunteer()">保存する</button>
     </div>
   </div>
 </div>
@@ -824,7 +792,8 @@ tr:hover td{background:var(--g50);}
   // 認証OK → ページを表示
   console.log('管理者認証OK');
   document.body.style.visibility='visible';
-  // ユーザー一覧を実データで初期化
+  // 初期データ読み込み
+  loadDashboard();
   loadUsers();
 })();
 
@@ -862,9 +831,191 @@ function nav(name){
   const btn=document.getElementById('top-action-btn');
   if(tabs[name].action){btn.style.display='';btn.textContent=tabs[name].action;btn.setAttribute('onclick',tabs[name].actionFn);}
   else btn.style.display='none';
+  if(name==='dashboard') loadDashboard();
   if(name==='users') loadUsers();
+  if(name==='volunteer') loadVolunteers();
   if(name==='points'){loadPtUsers();loadPtLog();}
   if(name==='notice') loadNotices();
+}
+
+// ======== ダッシュボード ========
+async function loadDashboard(){
+  if(!window.adminClient) return;
+  const now=new Date();
+  const monthStart=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+
+  const [usersRes,participantsRes,thanksRes,couponsRes,gradesRes,ptRes,activityRes]=await Promise.all([
+    window.adminClient.from('profiles').select('*',{count:'exact',head:true}),
+    window.adminClient.from('participations').select('*',{count:'exact',head:true}).gte('created_at',monthStart),
+    window.adminClient.from('thanks').select('*',{count:'exact',head:true}),
+    window.adminClient.from('coupons').select('*',{count:'exact',head:true}).eq('status','unused'),
+    window.adminClient.from('profiles').select('grades'),
+    window.adminClient.from('point_logs').select('amount'),
+    window.adminClient.from('point_logs').select('amount,reason,created_at,profiles(nickname,emoji)').order('created_at',{ascending:false}).limit(10)
+  ]);
+
+  // stat cards
+  const su=document.getElementById('dash-stat-users');
+  const sp=document.getElementById('dash-stat-participants');
+  const st=document.getElementById('dash-stat-thanks');
+  const sc=document.getElementById('dash-stat-coupons');
+  if(su) su.textContent=usersRes.count??'—';
+  if(sp) sp.textContent=participantsRes.count??'—';
+  if(st) st.textContent=thanksRes.count??'—';
+  if(sc) sc.textContent=couponsRes.count??'—';
+
+  // 学年別バーチャート
+  const gradeChart=document.getElementById('dash-grade-chart');
+  if(gradeChart&&gradesRes.data){
+    const gradeOrder=['1年生','2年生','3年生','4年生','5年生','6年生','地域','役員'];
+    const counts={};
+    gradesRes.data.forEach(p=>{
+      const g=p.grades||'その他';
+      counts[g]=(counts[g]||0)+1;
+    });
+    const max=Math.max(...Object.values(counts),1);
+    gradeChart.innerHTML=gradeOrder.filter(g=>counts[g]).map(g=>{
+      const pct=Math.round(counts[g]/max*100);
+      return '<div class="bar-row"><div class="bar-label">'+g+'</div><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%"></div></div><div class="bar-val">'+counts[g]+'名</div></div>';
+    }).join('')||'<div style="color:var(--ts);padding:1rem;">データなし</div>';
+  }
+
+  // ポイント合計
+  const ptTotal=document.getElementById('dash-pt-total');
+  if(ptTotal&&ptRes.data){
+    const total=ptRes.data.reduce((s,l)=>s+(l.amount||0),0);
+    ptTotal.textContent=total;
+  }
+
+  // 活動ログ
+  const tbody=document.getElementById('dash-activity-tbody');
+  if(tbody&&activityRes.data){
+    if(!activityRes.data.length){
+      tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--ts);padding:1rem;">活動記録がありません</td></tr>';
+    } else {
+      const reasonLabel={volunteer:'QR参加',thanks:'ありがとう',event:'イベント参加',fix:'ポイント修正',other:'手動付与'};
+      tbody.innerHTML=activityRes.data.map(l=>{
+        const d=new Date(l.created_at);
+        const ds=(d.getMonth()+1)+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+        const name=(l.profiles?.emoji||'👤')+' '+(l.profiles?.nickname||'');
+        const sign=l.amount>0?'+':'';
+        return '<tr><td>'+ds+'</td><td>'+name+'</td><td>'+(reasonLabel[l.reason]||l.reason||'—')+'</td><td style="font-weight:500;color:'+(l.amount>0?'var(--a400)':'var(--r600)')+';">'+sign+l.amount+' WaPT</td></tr>';
+      }).join('');
+    }
+  }
+}
+
+// ======== ボランティア管理 ========
+let volList=[];
+let editingVolId=null;
+const volStatusLabel={open:'募集中',soon:'締切間近',full:'定員満了',hidden:'非公開'};
+const volStatusBadge={open:'open',soon:'soon',full:'full',hidden:''};
+
+async function loadVolunteers(){
+  const tb=document.getElementById('vol-table-body');
+  if(!window.adminClient){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--ts);">Supabase未接続</td></tr>';return;}
+  tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--ts);">読み込み中...</td></tr>';
+  const{data,error}=await window.adminClient.from('volunteers').select('*').order('created_at',{ascending:false});
+  if(error){tb.innerHTML='<tr><td colspan="7" style="color:var(--r600);padding:1rem;">読み込みエラー: '+error.message+'</td></tr>';return;}
+  volList=data||[];
+  renderVolunteers();
+}
+
+async function renderVolunteers(){
+  const tb=document.getElementById('vol-table-body');
+  if(!volList.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--ts);">ボランティア活動がありません</td></tr>';return;}
+  // 各活動の参加者数を一括取得
+  const ids=volList.map(v=>v.id);
+  let ptCounts={};
+  if(window.adminClient){
+    const{data:ptData}=await window.adminClient.from('participations').select('volunteer_id').in('volunteer_id',ids);
+    if(ptData) ptData.forEach(p=>{ptCounts[p.volunteer_id]=(ptCounts[p.volunteer_id]||0)+1;});
+  }
+  tb.innerHTML=volList.map(v=>{
+    const badge=volStatusBadge[v.status]||'';
+    const label=volStatusLabel[v.status]||v.status||'—';
+    const count=ptCounts[v.id]||0;
+    const cap=v.capacity?v.capacity+'名':'—';
+    return '<tr>'+
+      '<td style="font-weight:500;">'+escHtml(v.title||'')+'</td>'+
+      '<td>'+escHtml(v.date_text||v.date||'')+'</td>'+
+      '<td>'+cap+'</td>'+
+      '<td>'+count+'名</td>'+
+      '<td>+'+(v.pt_reward||0)+' PT</td>'+
+      '<td><span class="badge '+badge+'">'+label+'</span></td>'+
+      '<td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openVolModal(\''+v.id+'\')">編集</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function openVolModal(id){
+  editingVolId=id;
+  const titleEl=document.getElementById('vol-modal-title');
+  const errEl=document.getElementById('vol-error');
+  const delBtn=document.getElementById('vol-delete-btn');
+  errEl.style.display='none';
+  if(id===null){
+    titleEl.textContent='ボランティア活動を登録';
+    document.getElementById('vol-title').value='';
+    document.getElementById('vol-date').value='';
+    document.getElementById('vol-capacity').value='';
+    document.getElementById('vol-pt').value='2';
+    document.getElementById('vol-status').value='open';
+    delBtn.style.display='none';
+  } else {
+    const v=volList.find(x=>x.id===id);
+    if(!v) return;
+    titleEl.textContent='ボランティア活動を編集';
+    document.getElementById('vol-title').value=v.title||'';
+    document.getElementById('vol-date').value=v.date_text||v.date||'';
+    document.getElementById('vol-capacity').value=v.capacity||'';
+    document.getElementById('vol-pt').value=String(v.pt_reward||2);
+    document.getElementById('vol-status').value=v.status||'open';
+    delBtn.style.display='';
+  }
+  openModal('modal-vol');
+}
+
+async function saveVolunteer(){
+  const title=document.getElementById('vol-title').value.trim();
+  const date_text=document.getElementById('vol-date').value.trim();
+  const capacity=parseInt(document.getElementById('vol-capacity').value)||null;
+  const pt_reward=parseInt(document.getElementById('vol-pt').value)||2;
+  const status=document.getElementById('vol-status').value;
+  const errEl=document.getElementById('vol-error');
+  const saveBtn=document.getElementById('vol-save-btn');
+  errEl.style.display='none';
+
+  if(!title){errEl.textContent='活動名を入力してください';errEl.style.display='block';return;}
+
+  saveBtn.disabled=true;saveBtn.textContent='保存中...';
+
+  if(window.adminClient){
+    const payload={title,date_text,capacity,pt_reward,status};
+    let error;
+    if(editingVolId){
+      ({error}=await window.adminClient.from('volunteers').update(payload).eq('id',editingVolId));
+    } else {
+      ({error}=await window.adminClient.from('volunteers').insert(payload));
+    }
+    if(error){errEl.textContent='保存に失敗しました: '+error.message;errEl.style.display='block';saveBtn.disabled=false;saveBtn.textContent='保存する';return;}
+  }
+  closeModal('modal-vol');
+  saveBtn.disabled=false;saveBtn.textContent='保存する';
+  await loadVolunteers();
+}
+
+async function deleteVolunteer(){
+  if(!editingVolId||!confirm('このボランティア活動を削除しますか？')) return;
+  const delBtn=document.getElementById('vol-delete-btn');
+  delBtn.disabled=true;delBtn.textContent='削除中...';
+  if(window.adminClient){
+    const{error}=await window.adminClient.from('volunteers').delete().eq('id',editingVolId);
+    if(error){alert('削除に失敗しました: '+error.message);delBtn.disabled=false;delBtn.textContent='削除';return;}
+  }
+  closeModal('modal-vol');
+  delBtn.disabled=false;delBtn.textContent='削除';
+  await loadVolunteers();
 }
 
 async function loadUsers(){
