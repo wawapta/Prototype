@@ -506,16 +506,8 @@ tr:hover td{background:var(--g50);}
       <div class="table-wrap">
         <div class="table-header">
           <div style="font-size:14px;font-weight:500;">付与履歴</div>
-          <select onchange="filterPtLog(this.value)" style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+          <select id="pt-log-filter" onchange="filterPtLog(this.value)" style="padding:6px 10px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
             <option value="all">全ユーザー</option>
-            <option value="sakura">🌸 さくらさん</option>
-            <option value="himawari">🌻 ひまわりさん</option>
-            <option value="yotsuba">🍀 よつばさん</option>
-            <option value="nami">🌊 なみさん</option>
-            <option value="fukurou">🦉 ふくろうさん</option>
-            <option value="hachi">🐝 はちみつさん</option>
-            <option value="tulip">🌷 チューリップさん</option>
-            <option value="kuma">🐻 くまさん</option>
           </select>
         </div>
         <table>
@@ -820,6 +812,8 @@ function nav(name){
   if(name==='qr') loadQRHistory();
   if(name==='novelty'){loadNovelty();loadNoveltyHistory();}
   if(name==='coupon') loadCoupons();
+  if(name==='thanks') loadThanks();
+  if(name==='calendar') loadCalendar();
 }
 
 // ======== ダッシュボード ========
@@ -1270,16 +1264,37 @@ document.querySelectorAll('.modal-overlay').forEach(m=>{
 
 renderUsers();
 
-const thanksData=[
-  {id:1,from:'🌸 さくらさん',to:'🌻 ひまわりさん',msg:'運動会の準備を丁寧に手伝ってくださってありがとうございました！子どもたちも喜んでいました。',date:'2026/03/20',status:'active'},
-  {id:2,from:'🍀 よつばさん',to:'🌊 なみさん',msg:'図書室の整理、毎回本当にお疲れ様です。子どもたちが本を探しやすくなりました。',date:'2026/03/18',status:'active'},
-  {id:3,from:'🦉 ふくろうさん',to:'🌸 さくらさん',msg:'見守りボランティア、雨の日も続けてくださってありがとうございます。',date:'2026/03/15',status:'active'},
-  {id:4,from:'🐝 はちみつさん',to:'🍀 よつばさん',msg:'入学式の準備、本当にありがとうございました！おかげでスムーズに進みました。',date:'2026/03/10',status:'active'},
-  {id:5,from:'🌷 チューリップさん',to:'🦉 ふくろうさん',msg:'読み聞かせボランティアいつもありがとうございます。子どもが楽しみにしています！',date:'2026/03/08',status:'active'},
-  {id:6,from:'🐻 くまさん',to:'🐝 はちみつさん',msg:'バザーの運営、本当にお疲れ様でした。大盛況でしたね！',date:'2026/03/05',status:'deleted'},
-  {id:7,from:'🌊 なみさん',to:'🌷 チューリップさん',msg:'花壇整備いつもきれいにしてくださってありがとうございます。',date:'2026/03/01',status:'active'},
-];
+let thanksData=[];
 let thanksFilter='all', thanksSearch='';
+
+async function loadThanks(){
+  const tbody=document.getElementById('thanks-table-body');
+  if(!tbody) return;
+  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1.5rem;">読み込み中...</td></tr>';
+  if(!window.adminClient){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1.5rem;">ログインが必要です</td></tr>';return;}
+  const now=new Date();
+  const monthStart=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  const[allRes,monthRes]=await Promise.all([
+    window.adminClient.from('thanks').select('id,message,created_at,is_deleted,from_profile:from_user_id(nickname,emoji),to_profile:to_user_id(nickname,emoji)').order('created_at',{ascending:false}).limit(200),
+    window.adminClient.from('thanks').select('*',{count:'exact',head:true}).gte('created_at',monthStart)
+  ]);
+  if(allRes.error){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--r600);padding:1.5rem;">読み込みエラー：'+escHtml(allRes.error.message)+'</td></tr>';return;}
+  thanksData=(allRes.data||[]).map(t=>({
+    id:t.id,
+    from:escHtml((t.from_profile?.emoji||'👤')+' '+(t.from_profile?.nickname||'—')+'さん'),
+    to:escHtml((t.to_profile?.emoji||'👤')+' '+(t.to_profile?.nickname||'—')+'さん'),
+    msg:t.message||'',
+    date:t.created_at?t.created_at.slice(0,10).replace(/-/g,'/'):'',
+    status:t.is_deleted?'deleted':'active'
+  }));
+  const total=thanksData.length;
+  const deleted=thanksData.filter(t=>t.status==='deleted').length;
+  const te=document.getElementById('thanks-total');const me=document.getElementById('thanks-month');const de=document.getElementById('thanks-deleted');
+  if(te) te.textContent=total;
+  if(me) me.textContent=monthRes.count??'—';
+  if(de) de.textContent=deleted;
+  renderThanks();
+}
 
 function renderThanks(){
   const tbody=document.getElementById('thanks-table-body');
@@ -1300,12 +1315,12 @@ function renderThanks(){
       '<span class="badge" style="background:var(--cbs);color:var(--ts);">削除済み</span>':
       '<span class="badge open">公開中</span>';
     const actionBtn=isDeleted?
-      '<button class="btn" style="font-size:12px;padding:4px 10px;" onclick="restoreThanks('+t.id+')">復元</button>':
-      '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="deleteThanks('+t.id+')">削除</button>';
+      '<button class="btn" style="font-size:12px;padding:4px 10px;" onclick="restoreThanks(\''+t.id+'\')">復元</button>':
+      '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="deleteThanks(\''+t.id+'\')">削除</button>';
     return '<tr style="'+(isDeleted?'opacity:.5;':'')+'">'+
       '<td style="font-weight:500;">'+t.from+'</td>'+
       '<td>'+t.to+'</td>'+
-      '<td style="max-width:240px;"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ts);">'+t.msg+'</div></td>'+
+      '<td style="max-width:240px;"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ts);">'+escHtml(t.msg)+'</div></td>'+
       '<td style="color:var(--ts);">'+t.date+'</td>'+
       '<td>'+statusBadge+'</td>'+
       '<td>'+actionBtn+'</td>'+
@@ -1313,50 +1328,70 @@ function renderThanks(){
   }).join('');
 }
 
-function deleteThanks(id){
+async function deleteThanks(id){
   if(!confirm('このメッセージを削除しますか？\n削除するとユーザー画面から非表示になります。')) return;
-  const t=thanksData.find(x=>x.id===id);
-  if(t){
-    t.status='deleted';
-    document.getElementById('thanks-deleted').textContent=parseInt(document.getElementById('thanks-deleted').textContent)+1;
-    renderThanks();
+  if(window.adminClient){
+    const{error}=await window.adminClient.from('thanks').update({is_deleted:true}).eq('id',id);
+    if(error){alert('削除に失敗しました: '+error.message);return;}
   }
+  const t=thanksData.find(x=>x.id===id);
+  if(t){t.status='deleted';const de=document.getElementById('thanks-deleted');if(de)de.textContent=parseInt(de.textContent)+1;}
+  renderThanks();
 }
 
-function restoreThanks(id){
+async function restoreThanks(id){
   if(!confirm('このメッセージを復元しますか？')) return;
-  const t=thanksData.find(x=>x.id===id);
-  if(t){
-    t.status='active';
-    const el=document.getElementById('thanks-deleted');
-    el.textContent=Math.max(0,parseInt(el.textContent)-1);
-    renderThanks();
+  if(window.adminClient){
+    const{error}=await window.adminClient.from('thanks').update({is_deleted:false}).eq('id',id);
+    if(error){alert('復元に失敗しました: '+error.message);return;}
   }
+  const t=thanksData.find(x=>x.id===id);
+  if(t){t.status='active';const de=document.getElementById('thanks-deleted');if(de)de.textContent=Math.max(0,parseInt(de.textContent)-1);}
+  renderThanks();
 }
 
 function filterThanks(val){thanksSearch=val;renderThanks();}
 function filterThanksStatus(val){thanksFilter=val;renderThanks();}
 
-let adminCalYear=2026, adminCalMonth=4;
-const adminCalEvents=[
-  {date:'2026-04-03',type:'vol',title:'入学式 会場設営',time:'9:00〜11:00',pt:'+3 PT'},
-  {date:'2026-04-07',type:'vol',title:'登下校 見守りサポート',time:'週1回〜OK',pt:'+2 PT'},
-  {date:'2026-04-10',type:'info',title:'1年生歓迎行事',time:'10:00〜12:00',pt:''},
-  {date:'2026-04-10',type:'vol',title:'図書室 読み聞かせ',time:'10:00〜11:30',pt:'+2 PT'},
-  {date:'2026-04-15',type:'info',title:'PTA役員会',time:'19:00〜20:30',pt:''},
-  {date:'2026-04-20',type:'info',title:'授業参観・懇談会',time:'13:30〜16:00',pt:''},
-  {date:'2026-04-24',type:'vol',title:'花壇整備ボランティア',time:'9:00〜10:30',pt:'+2 PT'},
-  {date:'2026-05-10',type:'vol',title:'図書室 読み聞かせ',time:'10:00〜11:30',pt:'+2 PT'},
-  {date:'2026-05-15',type:'info',title:'PTA役員会',time:'19:00〜20:30',pt:''},
-  {date:'2026-05-24',type:'vol',title:'バザー 運営サポート',time:'9:00〜15:00',pt:'+3 PT'},
-  {date:'2026-06-04',type:'vol',title:'運動会 準備ボランティア',time:'15:00〜17:00',pt:'+3 PT'},
-  {date:'2026-06-05',type:'info',title:'運動会',time:'8:30〜15:00',pt:''},
-];
+let adminCalYear=new Date().getFullYear(), adminCalMonth=new Date().getMonth()+1;
+let adminCalEvents=[];
 
 function adminCalMove(d){
   adminCalMonth+=d;
   if(adminCalMonth>12){adminCalMonth=1;adminCalYear++;}
   if(adminCalMonth<1){adminCalMonth=12;adminCalYear--;}
+  loadCalendar();
+}
+
+async function loadCalendar(){
+  const label=document.getElementById('admin-cal-label');
+  if(label) label.textContent=adminCalYear+'年'+adminCalMonth+'月';
+  const tbody=document.getElementById('admin-cal-table');
+  if(!tbody) return;
+  if(!window.adminClient){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1.5rem;">ログインが必要です</td></tr>';return;}
+  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1.5rem;">読み込み中...</td></tr>';
+  const y=adminCalYear, m=adminCalMonth;
+  const from=y+'-'+String(m).padStart(2,'0')+'-01';
+  const lastDay=new Date(y,m,0).getDate();
+  const to=y+'-'+String(m).padStart(2,'0')+'-'+lastDay;
+  const[volRes,evtRes]=await Promise.all([
+    window.adminClient.from('volunteers').select('id,title,date_text,date,pt_reward,status').gte('created_at',from+'T00:00:00').lte('created_at',to+'T23:59:59'),
+    window.adminClient.from('calendar_events').select('*').gte('date',from).lte('date',to)
+  ]);
+  adminCalEvents=[];
+  (volRes.data||[]).forEach(v=>{
+    adminCalEvents.push({id:v.id,source:'volunteer',type:'vol',title:v.title||'',date:v.date||from,time:v.date_text||'',pt:v.pt_reward?'+'+v.pt_reward+' PT':''});
+  });
+  (evtRes.data||[]).forEach(e=>{
+    adminCalEvents.push({id:e.id,source:'calendar_events',type:e.type||'info',title:e.title||'',date:e.date||from,time:e.time_text||'',pt:e.pt||''});
+  });
+  // Update stats
+  const volCount=adminCalEvents.filter(e=>e.type==='vol').length;
+  const infoCount=adminCalEvents.filter(e=>e.type!=='vol').length;
+  const statEls=document.querySelectorAll('#tab-calendar .stat-num');
+  if(statEls[0]) statEls[0].textContent=adminCalEvents.length;
+  if(statEls[1]) statEls[1].textContent=volCount;
+  if(statEls[2]) statEls[2].textContent=infoCount;
   renderAdminCal();
 }
 
@@ -1367,10 +1402,8 @@ function renderAdminCal(){
   if(!tbody) return;
   const filterEl=document.getElementById('admin-cal-filter');
   const filter=filterEl?filterEl.value:'all';
-  const filtered=adminCalEvents.filter(e=>{
-    const [y,m]=e.date.split('-').map(Number);
-    return y===adminCalYear&&m===adminCalMonth&&(filter==='all'||e.type===filter);
-  }).sort((a,b)=>a.date.localeCompare(b.date));
+  const filtered=adminCalEvents.filter(e=>filter==='all'||e.type===filter)
+    .sort((a,b)=>a.date.localeCompare(b.date));
   if(!filtered.length){
     tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1.5rem;">この月の予定はありません</td></tr>';
     return;
@@ -1382,45 +1415,67 @@ function renderAdminCal(){
     const badge=e.type==='vol'?
       '<span class="badge open">ボランティア</span>':
       '<span class="badge" style="background:var(--a50);color:var(--a800);">お知らせ・行事</span>';
-    return '<tr><td style="font-weight:500;">'+adminCalMonth+'/'+d.getDate()+'（'+dow+'）</td>'+
-      '<td>'+badge+'</td><td>'+e.title+'</td>'+
-      '<td style="color:var(--ts);">'+(e.time||'—')+'</td>'+
-      '<td style="color:var(--a400);font-weight:500;">'+(e.pt||'—')+'</td>'+
+    return '<tr><td style="font-weight:500;">'+(d.getMonth()+1)+'/'+d.getDate()+'（'+dow+'）</td>'+
+      '<td>'+badge+'</td><td>'+escHtml(e.title)+'</td>'+
+      '<td style="color:var(--ts);">'+(escHtml(e.time)||'—')+'</td>'+
+      '<td style="color:var(--a400);font-weight:500;">'+(escHtml(e.pt)||'—')+'</td>'+
       '<td><div style="display:flex;gap:6px;">'+
-      '<button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openModal(\'modal-calendar\')">編集</button>'+
-      '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="if(confirm(\'この予定を削除しますか？\')){this.closest(\'tr\').style.opacity=\'.4\';this.textContent=\'削除済み\';this.disabled=true;}">削除</button>'+
+      '<button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openCalEditModal(\''+e.id+'\',\''+e.source+'\')">編集</button>'+
+      '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="deleteCalEvent(\''+e.id+'\',\''+e.source+'\',this)">削除</button>'+
       '</div></td></tr>';
   }).join('');
 }
 
-function saveCalEvent(){
-  const title=document.getElementById('cal-title-input').value||'新しい予定';
-  const date=document.getElementById('cal-date-input').value||(adminCalYear+'-'+String(adminCalMonth).padStart(2,'0')+'-01');
-  const type=document.getElementById('cal-type-select').value;
-  const time=document.getElementById('cal-time-input').value;
+function openCalEditModal(id,source){
+  const e=adminCalEvents.find(x=>x.id===id&&x.source===source);
+  if(!e) return;
+  document.getElementById('cal-type-select').value=e.type||'info';
+  document.getElementById('cal-title-input').value=e.title||'';
+  document.getElementById('cal-date-input').value=e.date||'';
+  document.getElementById('cal-time-input').value=e.time||'';
   const ptEl=document.getElementById('cal-pt-select');
-  const pt=type==='vol'&&ptEl?ptEl.value:'';
-  adminCalEvents.push({date,type,title,time,pt});
-  closeModal('modal-calendar');
-  renderAdminCal();
+  if(ptEl) ptEl.value=e.pt?e.pt.replace(/[^0-9]/g,''):'';
+  openModal('modal-calendar');
+  document.getElementById('modal-calendar').dataset.editId=id;
+  document.getElementById('modal-calendar').dataset.editSource=source;
 }
 
-const ptUsers={
-  sakura:{label:'🌸 さくらさん',pt:12},
-  himawari:{label:'🌻 ひまわりさん',pt:24},
-  yotsuba:{label:'🍀 よつばさん',pt:8},
-  nami:{label:'🌊 なみさん',pt:18},
-  fukurou:{label:'🦉 ふくろうさん',pt:15},
-  hachi:{label:'🐝 はちみつさん',pt:6},
-  tulip:{label:'🌷 チューリップさん',pt:9},
-  kuma:{label:'🐻 くまさん',pt:11},
-};
+async function deleteCalEvent(id,source,btn){
+  if(!confirm('この予定を削除しますか？'))return;
+  btn.disabled=true;
+  if(window.adminClient&&source==='calendar_events'){
+    await window.adminClient.from('calendar_events').delete().eq('id',id);
+  }
+  await loadCalendar();
+}
+
+async function saveCalEvent(){
+  const title=(document.getElementById('cal-title-input').value||'').trim()||'新しい予定';
+  const date=document.getElementById('cal-date-input').value||(adminCalYear+'-'+String(adminCalMonth).padStart(2,'0')+'-01');
+  const type=document.getElementById('cal-type-select').value;
+  const time=(document.getElementById('cal-time-input').value||'').trim();
+  const ptEl=document.getElementById('cal-pt-select');
+  const ptVal=ptEl?ptEl.value:'';
+  const pt=type==='vol'&&ptVal?('+'+ptVal+' PT'):'';
+  const modal=document.getElementById('modal-calendar');
+  const editId=modal.dataset.editId;
+  const editSource=modal.dataset.editSource;
+  if(window.adminClient){
+    if(editId&&editSource==='calendar_events'){
+      await window.adminClient.from('calendar_events').update({title,date,type,time_text:time,pt}).eq('id',editId);
+    } else if(!editId){
+      await window.adminClient.from('calendar_events').insert({title,date,type,time_text:time,pt});
+    }
+  }
+  delete modal.dataset.editId;
+  delete modal.dataset.editSource;
+  closeModal('modal-calendar');
+  await loadCalendar();
+}
+
+const ptUsers={};
 const ptReasonLabels={volunteer:'ボランティア参加',thanks:'ありがとう受信',event:'イベント参加',fix:'誤認修正',other:'その他'};
-const ptLog=[
-  {date:'2026/03/20',userKey:'sakura',pt:3,reason:'volunteer',note:'入学式 会場設営',by:'基洋さん'},
-  {date:'2026/03/15',userKey:'himawari',pt:2,reason:'volunteer',note:'図書室 整理',by:'基洋さん'},
-  {date:'2026/03/10',userKey:'yotsuba',pt:-1,reason:'fix',note:'QR二重読み取り修正',by:'基洋さん'},
-];
+const ptLog=[];
 let ptLogFilter='all';
 
 function setPtVal(v){
@@ -1434,6 +1489,8 @@ async function loadPtUsers(){
   const{data,error}=await window.adminClient.from('profiles').select('id,nickname,emoji,total_pt').order('nickname');
   if(error||!data)return;
   sel.innerHTML='<option value="">ユーザーを選択</option>';
+  const filterSel=document.getElementById('pt-log-filter');
+  if(filterSel) filterSel.innerHTML='<option value="all">全ユーザー</option>';
   data.forEach(p=>{
     const label=(p.emoji||'👤')+' '+(p.nickname||'(未設定)');
     ptUsers[p.id]={label,pt:p.total_pt||0};
@@ -1441,6 +1498,12 @@ async function loadPtUsers(){
     opt.value=p.id;
     opt.text=label+'（現在 '+(p.total_pt||0)+' PT）';
     sel.appendChild(opt);
+    if(filterSel){
+      const fopt=document.createElement('option');
+      fopt.value=p.id;
+      fopt.textContent=label;
+      filterSel.appendChild(fopt);
+    }
   });
   renderPtBalance();
 }
@@ -1760,7 +1823,7 @@ async function markUsedById(id,btn){
   }
   loadCoupons();
 }
-renderThanks();
+
 </script>
 </div>
 </div>
