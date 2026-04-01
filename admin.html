@@ -6,6 +6,7 @@
 <title>WaWa 管理者画面</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -335,9 +336,8 @@ tr:hover td{background:var(--g50);}
         <div class="card-title">発行履歴</div>
         <table>
           <thead><tr><th>活動名</th><th>付与PT</th><th>有効期限</th><th>スキャン数</th><th>発行日</th><th>操作</th></tr></thead>
-          <tbody>
-            <tr><td style="font-weight:500;">運動会 準備ボランティア</td><td>+3 PT</td><td>2026/05/16</td><td>8回</td><td>2026/03/15</td><td><button class="btn" style="font-size:12px;padding:4px 10px;">再印刷</button></td></tr>
-            <tr><td style="font-weight:500;">図書室 整理ボランティア</td><td>+2 PT</td><td>2026/03/01</td><td>5回</td><td>2026/02/20</td><td><button class="btn" style="font-size:12px;padding:4px 10px;">再印刷</button></td></tr>
+          <tbody id="qr-history-tbody">
+            <tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1rem;">読み込み中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -349,32 +349,21 @@ tr:hover td{background:var(--g50);}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div class="card">
           <div class="card-title">現在のノベルティ設定</div>
-          <div class="field"><label>ノベルティ名</label><input value="オリジナルトートバッグ"></div>
-          <div class="field"><label>説明（任意）</label><textarea placeholder="例：WaWaオリジナルデザインのエコバッグです">WaWaオリジナルデザインのエコバッグです</textarea></div>
-          <div class="field"><label>在庫数</label><input type="number" value="30"></div>
+          <div class="field"><label>ノベルティ名</label><input id="novelty-name" value="オリジナルトートバッグ"></div>
+          <div class="field"><label>説明（任意）</label><textarea id="novelty-desc" placeholder="例：WaWaオリジナルデザインのエコバッグです">WaWaオリジナルデザインのエコバッグです</textarea></div>
+          <div class="field"><label>在庫数</label><input id="novelty-stock" type="number" value="30"></div>
           <div class="field"><label>クーポン有効期限（発行後）</label>
-            <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-              <option>1ヶ月</option><option selected>3ヶ月</option><option>6ヶ月</option><option>1年</option>
+            <select id="novelty-expire" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="1">1ヶ月</option><option value="3" selected>3ヶ月</option><option value="6">6ヶ月</option><option value="12">1年</option>
             </select>
           </div>
-          <button class="btn primary" style="width:100%;" onclick="showSaved('novelty-saved')">保存する</button>
+          <button class="btn primary" style="width:100%;" onclick="saveNovelty()">保存する</button>
           <div id="novelty-saved" style="display:none;margin-top:8px;padding:8px 12px;background:var(--g50);border-radius:8px;font-size:13px;color:var(--g600);">✓ 保存しました</div>
         </div>
         <div class="card">
           <div class="card-title">ノベルティ交換履歴</div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <div style="background:var(--cbs);border-radius:8px;padding:10px 12px;font-size:13px;">
-              <div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">🌸 さくらさん</span><span style="color:var(--ts);">03/18</span></div>
-              <div style="color:var(--ts);margin-top:2px;">NMC-0000 → オリジナルトートバッグ</div>
-            </div>
-            <div style="background:var(--cbs);border-radius:8px;padding:10px 12px;font-size:13px;">
-              <div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">🌻 ひまわりさん</span><span style="color:var(--ts);">03/10</span></div>
-              <div style="color:var(--ts);margin-top:2px;">NMC-0001 → オリジナルトートバッグ</div>
-            </div>
-            <div style="background:var(--cbs);border-radius:8px;padding:10px 12px;font-size:13px;">
-              <div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">🍀 よつばさん</span><span style="color:var(--ts);">03/05</span></div>
-              <div style="color:var(--ts);margin-top:2px;">NMC-0002 → オリジナルトートバッグ</div>
-            </div>
+          <div id="novelty-history-list" style="display:flex;flex-direction:column;gap:8px;">
+            <div style="text-align:center;color:var(--ts);font-size:13px;padding:1rem;">読み込み中...</div>
           </div>
         </div>
       </div>
@@ -398,14 +387,6 @@ tr:hover td{background:var(--g50);}
             <select id="manual-coup-user" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
               <option value="">ユーザーを選択</option>
               <option value="all">👥 全員</option>
-              <option value="sakura">🌸 さくらさん</option>
-              <option value="himawari">🌻 ひまわりさん</option>
-              <option value="yotsuba">🍀 よつばさん</option>
-              <option value="nami">🌊 なみさん</option>
-              <option value="fukurou">🦉 ふくろうさん</option>
-              <option value="hachi">🐝 はちみつさん</option>
-              <option value="tulip">🌷 チューリップさん</option>
-              <option value="kuma">🐻 くまさん</option>
             </select>
           </div>
           <div>
@@ -836,6 +817,9 @@ function nav(name){
   if(name==='volunteer') loadVolunteers();
   if(name==='points'){loadPtUsers();loadPtLog();}
   if(name==='notice') loadNotices();
+  if(name==='qr') loadQRHistory();
+  if(name==='novelty'){loadNovelty();loadNoveltyHistory();}
+  if(name==='coupon') loadCoupons();
 }
 
 // ======== ダッシュボード ========
@@ -1125,40 +1109,159 @@ async function confirmDeleteUser(){
 function openModal(id){document.getElementById(id).classList.add('on');}
 function closeModal(id){document.getElementById(id).classList.remove('on');}
 
-function genQR(){
-  const name=document.getElementById('qr-name').value||'活動名未入力';
-  const pt=document.getElementById('qr-pt').value;
-  const area=document.getElementById('qr-preview-area');
-  area.innerHTML=`<div style="background:var(--cbs);border-radius:12px;padding:1.5rem;text-align:center;">
-    <svg width="140" height="140" viewBox="0 0 72 72" style="display:block;margin:0 auto 12px;">
-      <rect width="72" height="72" fill="white"/>
-      <rect x="4" y="4" width="24" height="24" fill="none" stroke="#2e9e6b" stroke-width="2"/>
-      <rect x="8" y="8" width="16" height="16" fill="#2e9e6b"/>
-      <rect x="44" y="4" width="24" height="24" fill="none" stroke="#2e9e6b" stroke-width="2"/>
-      <rect x="48" y="8" width="16" height="16" fill="#2e9e6b"/>
-      <rect x="4" y="44" width="24" height="24" fill="none" stroke="#2e9e6b" stroke-width="2"/>
-      <rect x="8" y="48" width="16" height="16" fill="#2e9e6b"/>
-      <rect x="44" y="44" width="6" height="6" fill="#2e9e6b"/><rect x="54" y="44" width="6" height="6" fill="#2e9e6b"/>
-      <rect x="44" y="54" width="6" height="6" fill="#2e9e6b"/><rect x="54" y="54" width="14" height="6" fill="#2e9e6b"/>
-      <rect x="44" y="62" width="14" height="6" fill="#2e9e6b"/>
-    </svg>
-    <div style="font-size:14px;font-weight:500;color:var(--t);">${name}</div>
-    <div style="font-size:12px;color:var(--a400);margin-top:4px;">参加で +${pt} WaPT</div>
-    <button class="btn primary" style="margin-top:12px;" onclick="alert('印刷ダイアログを開きます')">印刷する</button>
-  </div>`;
+async function genQR(){
+  const name=document.getElementById('qr-name').value.trim();
+  if(!name){alert('活動名を入力してください');return;}
+  const date=document.getElementById('qr-date').value.trim();
+  const pt=parseInt(document.getElementById('qr-pt').value)||3;
+  const expire=document.getElementById('qr-expire').value||null;
+  let qrId=null;
+  if(window.adminClient){
+    const{data,error}=await window.adminClient.from('qr_codes').insert({
+      title:name,date_text:date,pt_reward:pt,expires_at:expire||null,scan_count:0
+    }).select('id').single();
+    if(!error&&data) qrId=data.id;
+  }
+  const baseUrl=window.location.href.replace(/admin\.html.*$/,'index.html');
+  const qrContent=qrId?(baseUrl+'?qr_id='+qrId):('wawa:'+name);
+  _renderQRPreview(name,date,pt,expire,qrContent,qrId);
+  loadQRHistory();
 }
 
-function markUsed(btn){
-  const td=btn.parentElement;
-  const statusTd=td.previousElementSibling;
-  statusTd.innerHTML='<span class="badge used">使用済み</span>';
-  btn.parentElement.innerHTML='—';
+function _renderQRPreview(name,date,pt,expire,qrContent,qrId){
+  const area=document.getElementById('qr-preview-area');
+  area.innerHTML='<div style="background:var(--cbs);border-radius:12px;padding:1.5rem;text-align:center;">'
+    +'<div id="qr-canvas-wrap" style="display:inline-block;margin:0 auto 12px;background:white;padding:8px;border-radius:8px;"></div>'
+    +'<div style="font-size:14px;font-weight:500;color:var(--t);">'+escHtml(name)+'</div>'
+    +(date?'<div style="font-size:12px;color:var(--ts);margin-top:2px;">'+escHtml(date)+'</div>':'')
+    +'<div style="font-size:12px;color:var(--a400);margin-top:4px;">参加で +'+pt+' WaPT</div>'
+    +(expire?'<div style="font-size:11px;color:var(--ts);margin-top:2px;">有効期限：'+escHtml(expire)+'</div>':'')
+    +'<button class="btn primary" style="margin-top:12px;" onclick="_printQR()">印刷する</button>'
+    +'</div>';
+  if(window.QRCode){
+    new QRCode(document.getElementById('qr-canvas-wrap'),{
+      text:qrContent,width:140,height:140,
+      colorDark:'#0c2d54',colorLight:'#ffffff',
+      correctLevel:QRCode.CorrectLevel.M
+    });
+  }
+}
+
+function _printQR(){
+  const wrap=document.getElementById('qr-canvas-wrap');
+  if(!wrap) return;
+  const canvas=wrap.querySelector('canvas');
+  if(!canvas){alert('QRコードが見つかりません');return;}
+  const name=document.getElementById('qr-name').value;
+  const pt=document.getElementById('qr-pt').value;
+  const w=window.open('','_blank');
+  w.document.write('<html><body style="text-align:center;padding:2rem;font-family:sans-serif;">');
+  w.document.write('<img src="'+canvas.toDataURL()+'" style="width:200px;height:200px;"><br>');
+  w.document.write('<p style="font-size:20px;margin-top:1rem;font-weight:600;">'+escHtml(name)+'</p>');
+  w.document.write('<p style="font-size:14px;color:#666;margin-top:4px;">参加で +'+pt+' WaPT</p>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.print();
+}
+
+async function reprintQR(id,name,date,pt){
+  const baseUrl=window.location.href.replace(/admin\.html.*$/,'index.html');
+  _renderQRPreview(name,date,pt,null,baseUrl+'?qr_id='+id,id);
+  document.getElementById('qr-name').value=name;
+  document.getElementById('qr-pt').value=String(pt);
+}
+
+async function loadQRHistory(){
+  const tbody=document.getElementById('qr-history-tbody');
+  if(!tbody) return;
+  if(!window.adminClient){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1rem;">ログインが必要です</td></tr>';
+    return;
+  }
+  const{data,error}=await window.adminClient.from('qr_codes').select('*').order('created_at',{ascending:false}).limit(50);
+  if(error||!data?.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--ts);padding:1rem;">'+(error?'エラー：'+escHtml(error.message):'発行履歴がありません')+'</td></tr>';
+    return;
+  }
+  const fmt=s=>{if(!s)return'—';const d=new Date(s);return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+String(d.getDate()).padStart(2,'0');};
+  tbody.innerHTML=data.map(q=>'<tr>'+
+    '<td style="font-weight:500;">'+escHtml(q.title||'')+'</td>'+
+    '<td>+'+(q.pt_reward||0)+' PT</td>'+
+    '<td style="color:var(--ts);">'+fmt(q.expires_at)+'</td>'+
+    '<td style="color:var(--ts);">'+(q.scan_count||0)+'回</td>'+
+    '<td style="color:var(--ts);">'+fmt(q.created_at)+'</td>'+
+    '<td style="white-space:nowrap;">'+
+      '<button class="btn" style="font-size:12px;padding:4px 10px;" onclick="reprintQR(\''+q.id+'\',\''+escHtml(q.title||'')+'\',\''+escHtml(q.date_text||'')+'\','+(q.pt_reward||0)+')">再印刷</button> '+
+      '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="deleteQR(\''+q.id+'\',this)">削除</button>'+
+    '</td>'+
+    '</tr>').join('');
+}
+
+async function deleteQR(id,btn){
+  if(!confirm('このQRコードを削除しますか？'))return;
+  btn.disabled=true;
+  if(window.adminClient) await window.adminClient.from('qr_codes').delete().eq('id',id);
+  loadQRHistory();
 }
 
 function showSaved(id){
   const el=document.getElementById(id);
   el.style.display='block';
   setTimeout(()=>el.style.display='none',2500);
+}
+
+async function saveNovelty(){
+  const name=(document.getElementById('novelty-name').value||'').trim();
+  if(!name){alert('ノベルティ名を入力してください');return;}
+  const desc=(document.getElementById('novelty-desc').value||'').trim();
+  const stock=parseInt(document.getElementById('novelty-stock').value)||0;
+  const expire=parseInt(document.getElementById('novelty-expire').value)||3;
+  if(window.adminClient){
+    const{error}=await window.adminClient.from('novelties').upsert({id:1,name,description:desc,stock,expire_months:expire},{onConflict:'id'});
+    if(error){alert('保存に失敗しました: '+error.message);return;}
+  }
+  showSaved('novelty-saved');
+}
+
+async function loadNovelty(){
+  if(!window.adminClient) return;
+  const{data}=await window.adminClient.from('novelties').select('*').eq('id',1).single();
+  if(!data) return;
+  const n=document.getElementById('novelty-name');
+  const d=document.getElementById('novelty-desc');
+  const s=document.getElementById('novelty-stock');
+  const e=document.getElementById('novelty-expire');
+  if(n) n.value=data.name||'';
+  if(d) d.value=data.description||'';
+  if(s) s.value=data.stock||0;
+  if(e) e.value=String(data.expire_months||3);
+}
+
+async function loadNoveltyHistory(){
+  const list=document.getElementById('novelty-history-list');
+  if(!list) return;
+  if(!window.adminClient){
+    list.innerHTML='<div style="text-align:center;color:var(--ts);font-size:13px;padding:1rem;">ログインが必要です</div>';
+    return;
+  }
+  const{data,error}=await window.adminClient.from('coupons')
+    .select('code,novelty_name,created_at,profiles(nickname,emoji)')
+    .eq('type','stamp')
+    .order('created_at',{ascending:false})
+    .limit(20);
+  if(error||!data?.length){
+    list.innerHTML='<div style="text-align:center;color:var(--ts);font-size:13px;padding:1rem;">'+(error?'エラー：'+escHtml(error.message):'交換履歴がありません')+'</div>';
+    return;
+  }
+  const fmt=s=>{const d=new Date(s);return(d.getMonth()+1)+'/'+String(d.getDate()).padStart(2,'0');};
+  list.innerHTML=data.map(c=>{
+    const p=c.profiles||{};
+    const label=escHtml((p.emoji||'')+(p.nickname?p.nickname+'さん':'—'));
+    return '<div style="background:var(--cbs);border-radius:8px;padding:10px 12px;font-size:13px;">'
+      +'<div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">'+label+'</span><span style="color:var(--ts);">'+fmt(c.created_at)+'</span></div>'
+      +'<div style="color:var(--ts);margin-top:2px;">'+escHtml(c.code||'—')+' → '+escHtml(c.novelty_name||'ノベルティ')+'</div>'
+      +'</div>';
+  }).join('');
 }
 
 document.querySelectorAll('.modal-overlay').forEach(m=>{
@@ -1530,88 +1633,133 @@ async function deleteNotice(id){
   noticeList=noticeList.filter(n=>n.id!==id);
   renderNotices();
 }
-let manualCoupSeq=100;
 const typeLabels={volunteer:'ボランティア参加',event:'イベント限定',register:'登録お礼',other:'その他'};
-const userLabels={sakura:'🌸 さくらさん',himawari:'🌻 ひまわりさん',yotsuba:'🍀 よつばさん',nami:'🌊 なみさん',fukurou:'🦉 ふくろうさん',hachi:'🐝 はちみつさん',tulip:'🌷 チューリップさん',kuma:'🐻 くまさん'};
-const adminCoupons=[
-  {code:'NMC-0007',user:'🌸 さくらさん',novelty:'トートバッグ',type:'stamp',issued:'2026/03/20',expires:'2026/06/20',status:'unused'},
-  {code:'NMC-0006',user:'🌻 ひまわりさん',novelty:'トートバッグ',type:'stamp',issued:'2026/03/15',expires:'2026/06/15',status:'unused'},
-  {code:'NMC-0005',user:'🍀 よつばさん',novelty:'トートバッグ',type:'stamp',issued:'2026/03/10',expires:'2026/06/10',status:'unused'},
-  {code:'NMC-0004',user:'🌊 なみさん',novelty:'トートバッグ',type:'stamp',issued:'2026/03/01',expires:'2026/06/01',status:'used'},
-  {code:'NMC-0003',user:'🦉 ふくろうさん',novelty:'トートバッグ',type:'stamp',issued:'2026/02/20',expires:'2026/05/20',status:'used'},
-];
+let couponsData=[];
 
-function issueManualCoupon(){
-  const userKey=document.getElementById('manual-coup-user').value;
-  if(!userKey){alert('ユーザーを選択してください');return;}
-  const type=document.getElementById('manual-coup-type').value;
-  const novelty=document.getElementById('manual-coup-novelty').value||'ノベルティ';
-  const months=parseInt(document.getElementById('manual-coup-expire').value);
-  const today=new Date();
-  const fmt=d=>d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
-  const expires=months===0?'無期限':fmt(new Date(today).setMonth(today.getMonth()+months)&&new Date(new Date(today).setMonth(today.getMonth()+months)));
-
-  const targetUsers=userKey==='all'?Object.keys(userLabels):[userKey];
-  targetUsers.forEach(uk=>{
-    const code='MNL-'+String(manualCoupSeq++).padStart(4,'0');
-    adminCoupons.unshift({code,user:userLabels[uk],novelty,type,issued:fmt(today),expires:months===0?'無期限':fmt(new Date(new Date(today).setMonth(today.getMonth()+months))),status:'unused'});
+async function loadCouponUsers(){
+  const sel=document.getElementById('manual-coup-user');
+  if(!sel||!window.adminClient) return;
+  const{data}=await window.adminClient.from('profiles').select('id,nickname,emoji').order('nickname');
+  if(!data) return;
+  // Keep first two options (placeholder + 全員), replace the rest
+  while(sel.options.length>2) sel.remove(2);
+  data.forEach(p=>{
+    const opt=document.createElement('option');
+    opt.value=p.id;
+    opt.textContent=(p.emoji||'')+(p.nickname||p.id);
+    sel.appendChild(opt);
   });
+}
+
+async function loadCoupons(){
+  loadCouponUsers();
+  const tbody=document.getElementById('adm-coup-tbody');
+  if(!tbody) return;
+  if(!window.adminClient){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ts);padding:1rem;">ログインが必要です</td></tr>';
+    return;
+  }
+  tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ts);padding:1rem;">読み込み中...</td></tr>';
+  const{data,error}=await window.adminClient.from('coupons')
+    .select('*,profiles(nickname,emoji)')
+    .order('created_at',{ascending:false})
+    .limit(200);
+  if(error){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ts);padding:1rem;">エラー：'+escHtml(error.message)+'</td></tr>';
+    return;
+  }
+  couponsData=data||[];
   renderAdminCoupons();
-  const done=document.getElementById('manual-coup-done');
-  done.textContent='✓ '+(userKey==='all'?'全員（'+targetUsers.length+'名）':userLabels[userKey])+' にクーポンを発行しました';
-  done.style.display='block';
-  setTimeout(()=>done.style.display='none',3000);
 }
 
 function renderAdminCoupons(){
   const tbody=document.getElementById('adm-coup-tbody');
   if(!tbody) return;
   const filter=document.getElementById('adm-coup-filter')?.value||'all';
-  const filtered=adminCoupons.filter(c=>{
+  const filtered=couponsData.filter(c=>{
     if(filter==='unused') return c.status==='unused';
-    if(filter==='used') return c.status==='used';
+    if(filter==='used') return c.status==='used'||c.status==='redeemed';
     if(filter==='manual') return c.type!=='stamp';
     return true;
   });
-  const unused=adminCoupons.filter(c=>c.status==='unused').length;
-  const used=adminCoupons.filter(c=>c.status==='used').length;
-  const total=adminCoupons.length;
+  const unused=couponsData.filter(c=>c.status==='unused').length;
+  const used=couponsData.filter(c=>c.status==='used'||c.status==='redeemed').length;
+  const total=couponsData.length;
   const te=document.getElementById('adm-coup-total');
   const ue=document.getElementById('adm-coup-unused');
   const de=document.getElementById('adm-coup-used');
   if(te) te.textContent=total;
   if(ue) ue.textContent=unused;
   if(de) de.textContent=used;
-  const isManual=c=>c.type!=='stamp';
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ts);padding:1rem;">該当するクーポンがありません</td></tr>';
+    return;
+  }
+  const fmtDate=s=>{if(!s)return'無期限';const d=new Date(s);return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+String(d.getDate()).padStart(2,'0');};
   tbody.innerHTML=filtered.map(c=>{
-    const typeBadge=isManual(c)?
+    const p=c.profiles||{};
+    const userLabel=escHtml((p.emoji||'')+(p.nickname||c.user_id||'—'));
+    const isManual=c.type!=='stamp';
+    const typeBadge=isManual?
       '<span class="badge" style="background:var(--b50);color:var(--b600);">'+(typeLabels[c.type]||c.type)+'</span>':
       '<span class="badge" style="background:var(--g50);color:#2878d6;">スタンプ</span>';
-    const statusBadge=c.status==='unused'?
-      '<span class="badge unused">未使用</span>':
-      '<span class="badge used">使用済み</span>';
-    const action=c.status==='unused'?
-      '<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="markUsedById(\''+c.code+'\',this)">使用済みにする</button>':'—';
+    const isUsed=c.status==='used'||c.status==='redeemed';
+    const statusBadge=isUsed?'<span class="badge used">使用済み</span>':'<span class="badge unused">未使用</span>';
+    const action=!isUsed?'<button class="btn danger" style="font-size:12px;padding:4px 10px;" onclick="markUsedById(\''+c.id+'\',this)">使用済みにする</button>':'—';
     return '<tr>'+
-      '<td style="font-family:var(--fm);font-size:12px;">'+c.code+'</td>'+
-      '<td style="font-weight:500;">'+c.user+'</td>'+
-      '<td>'+c.novelty+'</td>'+
+      '<td style="font-family:var(--fm);font-size:12px;">'+escHtml(c.code||c.id)+'</td>'+
+      '<td style="font-weight:500;">'+userLabel+'</td>'+
+      '<td>'+escHtml(c.novelty_name||'—')+'</td>'+
       '<td>'+typeBadge+'</td>'+
-      '<td style="color:var(--ts);">'+c.issued+'</td>'+
-      '<td style="color:var(--ts);">'+c.expires+'</td>'+
+      '<td style="color:var(--ts);">'+fmtDate(c.created_at)+'</td>'+
+      '<td style="color:var(--ts);">'+fmtDate(c.expires_at)+'</td>'+
       '<td>'+statusBadge+'</td>'+
       '<td>'+action+'</td>'+
       '</tr>';
   }).join('');
 }
 
-function markUsedById(code,btn){
-  if(!confirm('このクーポンを使用済みにしますか？'))return;
-  const c=adminCoupons.find(x=>x.code===code);
-  if(c){c.status='used';renderAdminCoupons();}
+async function issueManualCoupon(){
+  const userKey=document.getElementById('manual-coup-user').value;
+  if(!userKey){alert('ユーザーを選択してください');return;}
+  const type=document.getElementById('manual-coup-type').value;
+  const novelty=(document.getElementById('manual-coup-novelty').value||'ノベルティ').trim();
+  const months=parseInt(document.getElementById('manual-coup-expire').value);
+  const note=(document.getElementById('manual-coup-note').value||'').trim();
+  const today=new Date();
+  const expiresAt=months===0?null:new Date(new Date().setMonth(today.getMonth()+months)).toISOString().split('T')[0];
+  if(!window.adminClient){alert('ログインが必要です');return;}
+  let targetIds=[];
+  if(userKey==='all'){
+    const{data}=await window.adminClient.from('profiles').select('id');
+    targetIds=(data||[]).map(p=>p.id);
+  } else {
+    targetIds=[userKey];
+  }
+  if(!targetIds.length){alert('対象ユーザーが見つかりません');return;}
+  const rows=targetIds.map(uid=>({
+    user_id:uid,type,novelty_name:novelty,status:'unused',
+    expires_at:expiresAt,note,
+    code:'MNL-'+Date.now().toString(36).toUpperCase()+'-'+Math.floor(Math.random()*1000).toString().padStart(3,'0')
+  }));
+  const{error}=await window.adminClient.from('coupons').insert(rows);
+  if(error){alert('発行に失敗しました: '+error.message);return;}
+  const done=document.getElementById('manual-coup-done');
+  done.textContent='✓ '+(userKey==='all'?'全員（'+targetIds.length+'名）に':'')+'クーポンを発行しました';
+  done.style.display='block';
+  setTimeout(()=>done.style.display='none',3000);
+  loadCoupons();
 }
 
-renderAdminCoupons();
+async function markUsedById(id,btn){
+  if(!confirm('このクーポンを使用済みにしますか？'))return;
+  btn.disabled=true;
+  if(window.adminClient){
+    const{error}=await window.adminClient.from('coupons').update({status:'used',used_at:new Date().toISOString()}).eq('id',id);
+    if(error){alert('更新に失敗しました: '+error.message);btn.disabled=false;return;}
+  }
+  loadCoupons();
+}
 renderThanks();
 </script>
 </div>
