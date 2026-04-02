@@ -1093,6 +1093,14 @@ async function confirmDeleteUser(){
   const btn=document.getElementById('modal-delete-btn');
   btn.textContent='削除中...';btn.disabled=true;
   if(window.adminClient&&u.id){
+    // 関連データを先に削除（カスケード）
+    await Promise.all([
+      window.adminClient.from('participations').delete().eq('user_id',u.id),
+      window.adminClient.from('point_logs').delete().eq('user_id',u.id),
+      window.adminClient.from('coupons').delete().eq('user_id',u.id),
+      window.adminClient.from('thanks').delete().eq('from_user_id',u.id),
+      window.adminClient.from('thanks').delete().eq('to_user_id',u.id)
+    ]);
     const{error}=await window.adminClient.from('profiles').delete().eq('id',u.id);
     if(error){
       alert('削除に失敗しました: '+error.message);

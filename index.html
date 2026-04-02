@@ -521,9 +521,9 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
     <div class="ib" style="background:var(--blue-50);border:.5px solid var(--blue-100);color:var(--blue-600);">役員・担当者専用画面です</div>
     <div class="st">今月の集計</div>
     <div class="asg">
-      <div class="as"><div class="asn">42</div><div class="asl">登録者数</div></div>
-      <div class="as"><div class="asn">18</div><div class="asl">今月参加</div></div>
-      <div class="as"><div class="asn">67</div><div class="asl">ありがとう数</div></div>
+      <div class="as"><div class="asn" id="admin-stat-users">—</div><div class="asl">登録者数</div></div>
+      <div class="as"><div class="asn" id="admin-stat-vol">—</div><div class="asl">今月参加</div></div>
+      <div class="as"><div class="asn" id="admin-stat-thanks">—</div><div class="asl">ありがとう数</div></div>
     </div>
     <div class="st">QRコード発行</div>
     <div class="card">
@@ -606,6 +606,8 @@ function switchTab(n){
     f1.style.display='none';f2.style.display='block';
   }
 }
+
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ======== Supabase設定 ========
 // SUPABASE_URL と SUPABASE_KEY は config.js から読み込まれます
@@ -796,6 +798,23 @@ async function loadStats(userId){
   if(cpCount!=null) document.getElementById('scp').textContent=cpCount;
 }
 
+async function loadAdminStatsDB(){
+  if(!sbClient)return;
+  const now=new Date();
+  const monthStart=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  const[usersRes,volRes,tkRes]=await Promise.all([
+    sbClient.from('profiles').select('*',{count:'exact',head:true}),
+    sbClient.from('participations').select('*',{count:'exact',head:true}).gte('created_at',monthStart),
+    sbClient.from('thanks').select('*',{count:'exact',head:true}).gte('created_at',monthStart).eq('is_deleted',false)
+  ]);
+  const el1=document.getElementById('admin-stat-users');
+  const el2=document.getElementById('admin-stat-vol');
+  const el3=document.getElementById('admin-stat-thanks');
+  if(el1&&usersRes.count!=null)el1.textContent=usersRes.count;
+  if(el2&&volRes.count!=null)el2.textContent=volRes.count;
+  if(el3&&tkRes.count!=null)el3.textContent=tkRes.count;
+}
+
 async function saveProfile(nick,emoji,grades){
   if(!sbClient){console.warn('saveProfile: sbClientなし');return;}
   try{
@@ -840,21 +859,24 @@ async function addPtDB(userId,amount,reason,note){
 
 // ======== ボランティア参加登録 ========
 async function joinVolDB(volId,volTitle,ptAmount){
-  if(!sbClient)return false;
-  const {data:{user}}=await sbClient.auth.getUser();
-  if(!user)return false;
-  // 重複チェック
-  const {data:exists}=await sbClient.from('participations').select('id').eq('user_id',user.id).eq('volunteer_id',volId).single();
-  if(exists)return false;
-  // 参加記録
-  await sbClient.from('participations').insert({
-    user_id:user.id,
-    volunteer_id:volId,
-    pt_earned:ptAmount
-  });
-  // ポイント付与
-  await addPtDB(user.id,ptAmount,'volunteer',volTitle);
-  return true;
+  if(!sbClient)return 'error';
+  try{
+    const {data:{user}}=await sbClient.auth.getUser();
+    if(!user)return 'error';
+    // 重複チェック
+    const {data:exists}=await sbClient.from('participations').select('id').eq('user_id',user.id).eq('volunteer_id',volId).single();
+    if(exists)return 'duplicate';
+    // 参加記録
+    const{error}=await sbClient.from('participations').insert({
+      user_id:user.id,
+      volunteer_id:volId,
+      pt_earned:ptAmount
+    });
+    if(error)return 'error';
+    // ポイント付与
+    await addPtDB(user.id,ptAmount,'volunteer',volTitle);
+    return 'ok';
+  }catch(e){console.error('joinVolDBエラー:',e);return 'error';}
 }
 
 // ======== QR参加記録 ========
@@ -895,16 +917,18 @@ async function sendThanksDB(toUserId,message){
 async function loadThanksDB(){
   if(!sbClient)return;
   const {data}=await sbClient.from('thanks')
-    .select('*')
+    .select('*, from_profile:from_user_id(nickname,emoji)')
+    .eq('is_deleted',false)
     .order('created_at',{ascending:false})
     .limit(20);
   if(!data||!data.length)return;
   const feed=document.getElementById('tfeed');
-  // サーバーデータがある場合は差し替え
   const serverCards=data.map(t=>{
+    const fp=t.from_profile||{};
+    const senderName=escHtml((fp.emoji||'💌')+' '+(fp.nickname?fp.nickname+' より':'—'));
     const card=document.createElement('div');card.className='tc2';
-    card.innerHTML='<div class="th2"><div class="tav">💌</div><div><div class="tn">送信者</div></div><div class="ttm">'+new Date(t.created_at).toLocaleDateString('ja-JP')+'</div></div>'+
-      '<div class="tm2">'+t.message+'</div>';
+    card.innerHTML='<div class="th2"><div class="tav">'+(fp.emoji||'💌')+'</div><div><div class="tn">'+senderName+'</div></div><div class="ttm">'+new Date(t.created_at).toLocaleDateString('ja-JP')+'</div></div>'+
+      '<div class="tm2">'+escHtml(t.message||'')+'</div>';
     return card;
   });
   if(serverCards.length>0){
@@ -1056,6 +1080,7 @@ function st(n){
   document.querySelectorAll('.tc').forEach(e=>e.classList.add('h'));
   const el=document.getElementById(tmap[n]);if(el)el.classList.remove('h');
   document.querySelectorAll('.tab').forEach((e,i)=>e.classList.toggle('on',tabs[i]===n));
+  if(n==='admin')loadAdminStatsDB();
 }
 function rn(){
   const a=document.getElementById('narea');a.innerHTML='';
@@ -1254,11 +1279,19 @@ async function jv(btn){
   const ptAmount=parseInt(card?.dataset?.pt||0);
   btn.classList.add('jd');btn.textContent='登録中...';btn.disabled=true;
   if(volId&&sbClient){
-    const ok=await joinVolDB(volId,volTitle,ptAmount);
-    if(ok&&ptAmount>0) ap(ptAmount,volTitle,false);
+    const result=await joinVolDB(volId,volTitle,ptAmount);
+    if(result==='ok'){
+      if(ptAmount>0) ap(ptAmount,volTitle,false);
+      btn.textContent='登録済み';
+      const n=document.getElementById('jntf');n.classList.add('on');setTimeout(()=>n.classList.remove('on'),3000);
+    }else if(result==='duplicate'){
+      btn.textContent='登録済み';
+    }else{
+      btn.textContent='エラー';btn.classList.remove('jd');btn.disabled=false;
+    }
+  }else{
+    btn.textContent='登録済み';
   }
-  btn.textContent='登録済み';
-  const n=document.getElementById('jntf');n.classList.add('on');setTimeout(()=>n.classList.remove('on'),3000);
 }
 function gf(){
   if(af==='all')return recs;
@@ -1410,7 +1443,7 @@ function renderCal(){
 
     let eventsHTML='';
     grouped[dateStr].forEach((e,i)=>{
-      const joinBtn=e.type==='vol'?`<button class="cal-join-btn" onclick="calJoin(this,${calEvents.indexOf(e)})">${e.joined?'登録済み':'参加する'}</button>`:'';
+      const joinBtn=e.type==='vol'?`<button class="cal-join-btn" onclick="calJoin(this,${e._idx??calEvents.indexOf(e)})">${e.joined?'登録済み':'参加する'}</button>`:'';
       eventsHTML+=`<div class="cal-event">
         <div class="cal-event-bar ${e.type}"></div>
         <div class="cal-event-content">
@@ -1444,11 +1477,21 @@ async function calJoin(btn,idx){
   btn.disabled=true;btn.textContent='登録中...';
   if(e.volunteer_id&&sbClient){
     const ptAmount=parseInt((e.pt||'').replace(/[^0-9]/g,''))||0;
-    const ok=await joinVolDB(e.volunteer_id,e.title,ptAmount);
-    if(ok&&ptAmount>0) ap(ptAmount,e.title,false);
+    const result=await joinVolDB(e.volunteer_id,e.title,ptAmount);
+    if(result==='ok'){
+      if(ptAmount>0) ap(ptAmount,e.title,false);
+      calEvents[idx].joined=true;
+      btn.textContent='登録済み';btn.style.opacity='.5';
+    }else if(result==='duplicate'){
+      calEvents[idx].joined=true;
+      btn.textContent='登録済み';btn.style.opacity='.5';
+    }else{
+      btn.textContent='参加する';btn.disabled=false;
+    }
+  }else{
+    calEvents[idx].joined=true;
+    btn.textContent='登録済み';btn.style.opacity='.5';
   }
-  calEvents[idx].joined=true;
-  btn.textContent='登録済み';btn.style.opacity='.5';
 }
 
 async function loadRecsDB(){
@@ -1501,6 +1544,7 @@ async function loadCalEventsDB(){
   (evtRes.data||[]).forEach(e=>{
     calEvents.push({date:e.date,type:e.type||'info',title:e.title||'',time:e.time_text||'',pt:e.pt||'',joined:false});
   });
+  calEvents.forEach((e,i)=>{e._idx=i;});
   renderCal();
 }
 
