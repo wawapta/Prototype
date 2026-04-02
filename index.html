@@ -1218,6 +1218,14 @@ async function handleQRScan(qrId){
     document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--coral-600);padding:8px;">このQRコードは有効期限切れです</div>';
     sc=false;return;
   }
+  // 本日の二重スキャンチェック
+  const today=new Date().toISOString().split('T')[0];
+  const{data:already}=await sbClient.from('participations').select('id').eq('user_id',(await sbClient.auth.getUser()).data.user?.id).eq('qr_code_id',qrId).gte('created_at',today+'T00:00:00').maybeSingle();
+  if(already){
+    document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--coral-600);padding:8px;">このQRコードは本日すでに読み取り済みです</div>';
+    if(history.replaceState)history.replaceState({},'',location.pathname);
+    sc=false;return;
+  }
   pendingScanData={name:data.title,pt:data.pt_reward||3,qrCodeId:qrId};
   document.getElementById('rname').textContent=data.title;
   document.getElementById('rdate').textContent=data.date_text||'';
@@ -1307,9 +1315,13 @@ function bsg(){
     r.appendChild(d);
   });
 }
-function sg(){
+async function sg(){
   const gl=og2.length>0?og2.sort((a,b)=>a-b).map(g=>g+'年生').join('・')+' 保護者':'地域ボランティア';
   document.getElementById('hgrade').textContent=gl;
+  if(sbClient){
+    const{data:{user}}=await sbClient.auth.getUser().catch(()=>({data:{user:null}}));
+    if(user) await sbClient.from('profiles').update({grades:gl}).eq('id',user.id);
+  }
   const n=document.getElementById('gntf');n.classList.add('on');setTimeout(()=>n.classList.remove('on'),2500);
 }
 function gqr(){
@@ -1320,12 +1332,21 @@ function gqr(){
   document.getElementById('aqrr').style.display='flex';
 }
 function snov(){const n=document.getElementById('novntf');n.classList.add('on');setTimeout(()=>n.classList.remove('on'),2500);}
-function ram(){
+async function ram(){
   const el=document.getElementById('amem');if(!el)return;
-  const d={1:3,2:5,3:7,4:6,5:4,6:3};let h='';
-  Object.entries(d).forEach(([g,c])=>{h+='<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:.5px solid var(--cb1);font-size:13px;"><span>'+g+'年生 保護者</span><span style="color:var(--teal-600);font-weight:500;">'+c+'名</span></div>';});
-  h+='<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;"><span>地域ボランティア</span><span style="color:var(--teal-600);font-weight:500;">14名</span></div>';
-  el.innerHTML=h;
+  if(!sbClient){return;}
+  const{data}=await sbClient.from('profiles').select('grades');
+  if(!data){return;}
+  const counts={};
+  data.forEach(p=>{
+    const g=p.grades||'';
+    for(let i=1;i<=6;i++){if(g.includes(i+'年生')){const k=i+'年生 保護者';counts[k]=(counts[k]||0)+1;}}
+    if(!g||g.includes('地域'))counts['地域ボランティア']=(counts['地域ボランティア']||0)+1;
+  });
+  let h='';
+  for(let i=1;i<=6;i++){const k=i+'年生 保護者';if(counts[k])h+='<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:.5px solid var(--cb1);font-size:13px;"><span>'+k+'</span><span style="color:var(--teal-600);font-weight:500;">'+counts[k]+'名</span></div>';}
+  if(counts['地域ボランティア'])h+='<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;"><span>地域ボランティア</span><span style="color:var(--teal-600);font-weight:500;">'+counts['地域ボランティア']+'名</span></div>';
+  el.innerHTML=h||'<div style="font-size:13px;color:var(--cs);padding:8px 0;">データがありません</div>';
 }
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth()+1,calFilterType='all';
 let calEvents=[];

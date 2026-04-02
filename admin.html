@@ -629,16 +629,17 @@ tr:hover td{background:var(--g50);}
 <div class="modal-overlay" id="modal-notice">
   <div class="modal">
     <div class="modal-title">お知らせを投稿する</div>
-    <div class="field"><label>タイトル</label><input placeholder="例：バザーボランティア募集のお知らせ"></div>
-    <div class="field"><label>本文</label><textarea rows="4" placeholder="お知らせの内容を入力してください"></textarea></div>
+    <div class="field"><label>タイトル</label><input id="modal-notice-title" placeholder="例：バザーボランティア募集のお知らせ" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);"></div>
+    <div class="field"><label>本文</label><textarea id="modal-notice-body" rows="4" placeholder="お知らせの内容を入力してください" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);resize:vertical;"></textarea></div>
     <div class="field"><label>送信対象</label>
-      <select style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-        <option>全員</option><option>保護者のみ</option><option>地域ボランティアのみ</option>
+      <select id="modal-notice-target" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+        <option value="all">全員</option><option value="parent">保護者のみ</option><option value="local">地域ボランティアのみ</option><option value="admin">管理者のみ</option>
       </select>
     </div>
+    <div id="modal-notice-error" style="display:none;padding:8px 12px;background:var(--r50);border-radius:8px;font-size:13px;color:var(--r600);margin-bottom:8px;"></div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('modal-notice')">キャンセル</button>
-      <button class="btn primary" onclick="closeModal('modal-notice')">投稿する</button>
+      <button class="btn primary" id="modal-notice-btn" onclick="postNoticeFromModal()">投稿する</button>
     </div>
   </div>
 </div>
@@ -784,11 +785,11 @@ let currentRoleUser=null;
 
 const tabs={
   dashboard:{title:'ダッシュボード',action:'＋ お知らせ投稿',actionFn:"openModal('modal-notice')"},
-  users:{title:'ユーザー管理',action:'CSVエクスポート',actionFn:''},
+  users:{title:'ユーザー管理',action:'CSVエクスポート',actionFn:'exportUsersCSV()'},
   volunteer:{title:'ボランティア管理',action:'＋ 新規作成',actionFn:"openModal('modal-vol')"},
   qr:{title:'QRコード発行',action:'',actionFn:''},
   novelty:{title:'ノベルティ設定',action:'',actionFn:''},
-  coupon:{title:'クーポン管理',action:'CSVエクスポート',actionFn:''},
+  coupon:{title:'クーポン管理',action:'CSVエクスポート',actionFn:'exportCouponsCSV()'},
   points:{title:'ポイント付与',action:'',actionFn:''},
   calendar:{title:'カレンダー管理',action:'＋ 予定を追加',actionFn:"openModal('modal-calendar')"},
   notice:{title:'お知らせ管理',action:'＋ お知らせ投稿',actionFn:"openModal('modal-notice')"},
@@ -1818,6 +1819,51 @@ async function issueManualCoupon(){
   done.style.display='block';
   setTimeout(()=>done.style.display='none',3000);
   loadCoupons();
+}
+
+function _downloadCSV(rows,filename){
+  const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+(String(v??'').replace(/"/g,'""'))+'"').join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=filename;a.click();
+}
+
+function exportUsersCSV(){
+  if(!users.length){alert('ユーザーデータがありません。先にユーザー管理タブを開いてください。');return;}
+  const rows=[['ニックネーム','メールアドレス','学年','ポイント','ロール','登録日']];
+  users.forEach(u=>rows.push([u.n,u.email,u.grade,u.pt,u.role==='admin'?'管理者':'一般',u.date]));
+  _downloadCSV(rows,'wawa_users_'+new Date().toISOString().slice(0,10)+'.csv');
+}
+
+function exportCouponsCSV(){
+  if(!couponsData.length){alert('クーポンデータがありません。先にクーポン管理タブを開いてください。');return;}
+  const rows=[['コード','ユーザー','ノベルティ','種別','発行日','有効期限','状態']];
+  const fmt=s=>{if(!s)return'無期限';const d=new Date(s);return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+String(d.getDate()).padStart(2,'0');};
+  couponsData.forEach(c=>{
+    const p=c.profiles||{};
+    rows.push([c.code||c.id,(p.emoji||'')+(p.nickname||'')+'さん',c.novelty_name||'',typeLabels[c.type]||c.type,fmt(c.created_at),fmt(c.expires_at),c.status==='used'||c.status==='redeemed'?'使用済み':'未使用']);
+  });
+  _downloadCSV(rows,'wawa_coupons_'+new Date().toISOString().slice(0,10)+'.csv');
+}
+
+async function postNoticeFromModal(){
+  const title=(document.getElementById('modal-notice-title').value||'').trim();
+  const body=(document.getElementById('modal-notice-body').value||'').trim();
+  const target=document.getElementById('modal-notice-target').value;
+  const errEl=document.getElementById('modal-notice-error');
+  const btn=document.getElementById('modal-notice-btn');
+  errEl.style.display='none';
+  if(!title){errEl.textContent='タイトルを入力してください';errEl.style.display='block';return;}
+  if(!body){errEl.textContent='本文を入力してください';errEl.style.display='block';return;}
+  if(!window.adminClient){errEl.textContent='ログインが必要です';errEl.style.display='block';return;}
+  btn.disabled=true;btn.textContent='投稿中...';
+  const{error}=await window.adminClient.from('notices').insert({title,body,target});
+  btn.disabled=false;btn.textContent='投稿する';
+  if(error){errEl.textContent='投稿に失敗しました: '+error.message;errEl.style.display='block';return;}
+  document.getElementById('modal-notice-title').value='';
+  document.getElementById('modal-notice-body').value='';
+  closeModal('modal-notice');
+  if(document.getElementById('tab-notice').classList.contains('on')) loadNotices();
 }
 
 async function markUsedById(id,btn){
