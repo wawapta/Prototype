@@ -58,3 +58,12 @@ ALTER TABLE public.participations
 -- 7. profiles テーブルに email 列を追加（管理者画面でのメール表示・CSV出力用）
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS email text;
+
+-- 8. volunteers テーブルに応募PT・参加PT列を追加
+ALTER TABLE public.volunteers
+  ADD COLUMN IF NOT EXISTS pt_apply  integer NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS pt_attend integer NOT NULL DEFAULT 2;
+
+-- 9. qr_codes テーブルに volunteer_id を追加（ボランティアとQRの連動）
+ALTER TABLE public.qr_codes
+  ADD COLUMN IF NOT EXISTS volunteer_id uuid REFERENCES public.volunteers(id) ON DELETE SET NULL;

@@ -304,7 +304,7 @@ tr:hover td{background:var(--g50);}
           <button class="btn primary" onclick="openVolModal(null)">＋ 新規作成</button>
         </div>
         <table>
-          <thead><tr><th>活動名</th><th>日時</th><th>定員</th><th>参加者数</th><th>付与PT</th><th>状態</th><th>操作</th></tr></thead>
+          <thead><tr><th>活動名</th><th>日時</th><th>定員</th><th>参加者数</th><th>応募PT</th><th>参加PT</th><th>状態</th><th>操作</th></tr></thead>
           <tbody id="vol-table-body">
             <tr><td colspan="7" style="text-align:center;padding:1.5rem;color:var(--ts);">読み込み中...</td></tr>
           </tbody>
@@ -317,11 +317,16 @@ tr:hover td{background:var(--g50);}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div class="card">
           <div class="card-title">QRコードを発行する</div>
+          <div class="field"><label>ボランティアと連動（任意）</label>
+            <select id="qr-volunteer" onchange="onQrVolChange()" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+              <option value="">手動入力</option>
+            </select>
+          </div>
           <div class="field"><label>活動名</label><input id="qr-name" placeholder="例：運動会 準備ボランティア"></div>
           <div class="field"><label>日時</label><input id="qr-date" placeholder="例：2026年5月15日（金）9:00〜"></div>
-          <div class="field"><label>付与ポイント</label>
+          <div class="field"><label>付与ポイント（QRスキャン時）</label>
             <select id="qr-pt" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-              <option value="1">+1 PT</option><option value="2">+2 PT</option><option value="3" selected>+3 PT</option><option value="5">+5 PT</option>
+              <option value="1">+1 PT</option><option value="2" selected>+2 PT</option><option value="3">+3 PT</option><option value="5">+5 PT</option>
             </select>
           </div>
           <div class="field"><label>有効期限</label><input type="date" id="qr-expire"></div>
@@ -606,11 +611,19 @@ tr:hover td{background:var(--g50);}
     <div class="field"><label>活動名</label><input id="vol-title" placeholder="例：運動会 準備ボランティア" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);"></div>
     <div class="field"><label>日時</label><input id="vol-date" placeholder="例：4月3日（木）9:00〜11:00" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);"></div>
     <div class="field"><label>定員</label><input id="vol-capacity" type="number" min="1" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);"></div>
-    <div class="field"><label>付与ポイント</label>
-      <select id="vol-pt" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-        <option value="1">+1 PT</option><option value="2">+2 PT</option><option value="3">+3 PT</option><option value="5">+5 PT</option>
-      </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="field"><label>応募ポイント</label>
+        <select id="vol-pt-apply" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+          <option value="0">0 PT</option><option value="1" selected>+1 PT</option><option value="2">+2 PT</option><option value="3">+3 PT</option>
+        </select>
+      </div>
+      <div class="field"><label>参加PT（QRスキャン）</label>
+        <select id="vol-pt-attend" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+          <option value="1">+1 PT</option><option value="2" selected>+2 PT</option><option value="3">+3 PT</option><option value="5">+5 PT</option>
+        </select>
+      </div>
     </div>
+    <div style="background:var(--b50);border:0.5px solid var(--b100);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--b600);margin-bottom:8px;">応募で応募PT、当日QRスキャンで参加PTが付与されます</div>
     <div class="field"><label>募集状態</label>
       <select id="vol-status" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
         <option value="open">募集中</option><option value="soon">締切間近</option><option value="full">定員満了</option><option value="hidden">非公開</option>
@@ -810,7 +823,7 @@ function nav(name){
   if(name==='volunteer') loadVolunteers();
   if(name==='points'){loadPtUsers();loadPtLog();}
   if(name==='notice') loadNotices();
-  if(name==='qr') loadQRHistory();
+  if(name==='qr'){loadQRHistory();loadQrVolSelect();}
   if(name==='novelty'){loadNovelty();loadNoveltyHistory();}
   if(name==='coupon') loadCoupons();
   if(name==='thanks') loadThanks();
@@ -869,7 +882,7 @@ async function loadDashboard(){
     let vol=0,thanks=0,other=0;
     logs.forEach(l=>{
       const a=l.amount||0;
-      if(l.reason==='volunteer'||l.reason==='qr_scan') vol+=a;
+      if(l.reason==='volunteer'||l.reason==='volunteer_apply'||l.reason==='qr_scan') vol+=a;
       else if(l.reason==='thanks') thanks+=a;
       else other+=a;
     });
@@ -943,12 +956,15 @@ async function renderVolunteers(){
     const label=volStatusLabel[v.status]||v.status||'—';
     const count=ptCounts[v.id]||0;
     const cap=v.capacity?v.capacity+'名':'—';
+    const ptApply=v.pt_apply??1;
+    const ptAttend=v.pt_attend??2;
     return '<tr>'+
       '<td style="font-weight:500;">'+escHtml(v.title||'')+'</td>'+
       '<td>'+escHtml(v.date_text||v.date||'')+'</td>'+
       '<td>'+cap+'</td>'+
       '<td>'+count+'名</td>'+
-      '<td>+'+(v.pt_reward||0)+' PT</td>'+
+      '<td style="color:var(--g600);">+'+ptApply+' PT</td>'+
+      '<td style="color:var(--a400);">+'+ptAttend+' PT</td>'+
       '<td><span class="badge '+badge+'">'+label+'</span></td>'+
       '<td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openVolModal(\''+v.id+'\')">編集</button></td>'+
     '</tr>';
@@ -966,7 +982,8 @@ function openVolModal(id){
     document.getElementById('vol-title').value='';
     document.getElementById('vol-date').value='';
     document.getElementById('vol-capacity').value='';
-    document.getElementById('vol-pt').value='2';
+    document.getElementById('vol-pt-apply').value='1';
+    document.getElementById('vol-pt-attend').value='2';
     document.getElementById('vol-status').value='open';
     delBtn.style.display='none';
   } else {
@@ -976,7 +993,8 @@ function openVolModal(id){
     document.getElementById('vol-title').value=v.title||'';
     document.getElementById('vol-date').value=v.date_text||v.date||'';
     document.getElementById('vol-capacity').value=v.capacity||'';
-    document.getElementById('vol-pt').value=String(v.pt_reward||2);
+    document.getElementById('vol-pt-apply').value=String(v.pt_apply??1);
+    document.getElementById('vol-pt-attend').value=String(v.pt_attend??2);
     document.getElementById('vol-status').value=v.status||'open';
     delBtn.style.display='';
   }
@@ -987,7 +1005,8 @@ async function saveVolunteer(){
   const title=document.getElementById('vol-title').value.trim();
   const date_text=document.getElementById('vol-date').value.trim();
   const capacity=parseInt(document.getElementById('vol-capacity').value)||null;
-  const pt_reward=parseInt(document.getElementById('vol-pt').value)||2;
+  const pt_apply=parseInt(document.getElementById('vol-pt-apply').value)||1;
+  const pt_attend=parseInt(document.getElementById('vol-pt-attend').value)||2;
   const status=document.getElementById('vol-status').value;
   const errEl=document.getElementById('vol-error');
   const saveBtn=document.getElementById('vol-save-btn');
@@ -998,7 +1017,7 @@ async function saveVolunteer(){
   saveBtn.disabled=true;saveBtn.textContent='保存中...';
 
   if(window.adminClient){
-    const payload={title,date_text,capacity,pt_reward,status};
+    const payload={title,date_text,capacity,pt_apply,pt_attend,pt_reward:pt_apply+pt_attend,status};
     let error;
     if(editingVolId){
       ({error}=await window.adminClient.from('volunteers').update(payload).eq('id',editingVolId));
@@ -1146,16 +1165,36 @@ async function confirmDeleteUser(){
 function openModal(id){document.getElementById(id).classList.add('on');}
 function closeModal(id){document.getElementById(id).classList.remove('on');}
 
+async function loadQrVolSelect(){
+  const sel=document.getElementById('qr-volunteer');
+  if(!sel||!window.adminClient)return;
+  const{data}=await window.adminClient.from('volunteers').select('id,title,date_text,pt_attend').in('status',['open','soon']).order('created_at',{ascending:false});
+  const cur=sel.value;
+  sel.innerHTML='<option value="">手動入力</option>'+(data||[]).map(v=>'<option value="'+v.id+'" data-date="'+escHtml(v.date_text||'')+'" data-pt="'+(v.pt_attend??2)+'">'+escHtml(v.title||'')+'</option>').join('');
+  if(cur) sel.value=cur;
+}
+
+function onQrVolChange(){
+  const sel=document.getElementById('qr-volunteer');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value) return;
+  document.getElementById('qr-name').value=opt.text;
+  document.getElementById('qr-date').value=opt.dataset.date||'';
+  document.getElementById('qr-pt').value=opt.dataset.pt||'2';
+}
+
 async function genQR(){
+  const volId=document.getElementById('qr-volunteer')?.value||'';
   const name=document.getElementById('qr-name').value.trim();
   if(!name){alert('活動名を入力してください');return;}
   const date=document.getElementById('qr-date').value.trim();
-  const pt=parseInt(document.getElementById('qr-pt').value)||3;
+  const pt=parseInt(document.getElementById('qr-pt').value)||2;
   const expire=document.getElementById('qr-expire').value||null;
   let qrId=null;
   if(window.adminClient){
     const{data,error}=await window.adminClient.from('qr_codes').insert({
-      title:name,date_text:date,pt_reward:pt,expires_at:expire||null,scan_count:0
+      title:name,date_text:date,pt_reward:pt,expires_at:expire||null,scan_count:0,
+      volunteer_id:volId||null
     }).select('id').single();
     if(!error&&data) qrId=data.id;
   }
