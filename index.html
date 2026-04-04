@@ -968,8 +968,8 @@ async function confirmScanDB(eventName,ptAmount,qrCodeId,volunteerId){
   });
   await addPtDB(user.id,ptAmount,'qr_scan',eventName);
   if(qrCodeId){
-    const{data:qr}=await sbClient.from('qr_codes').select('scan_count').eq('id',qrCodeId).single();
-    await sbClient.from('qr_codes').update({scan_count:(qr?.scan_count||0)+1}).eq('id',qrCodeId);
+    // scan_countはSECURITY DEFINER関数で更新（RLS制限回避）
+    await sbClient.rpc('increment_qr_scan_count',{p_qr_id:qrCodeId}).catch(()=>{});
   }
 }
 
