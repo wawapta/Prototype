@@ -937,20 +937,20 @@ async function joinVolDB(volId,volTitle,ptAmount){
       pt_earned:ptAmount
     });
     if(error)return 'error';
-    // ポイント付与
-    await addPtDB(user.id,ptAmount,'volunteer',volTitle);
+    // ポイント付与（応募ポイント）
+    await addPtDB(user.id,ptAmount,'volunteer_apply',volTitle);
     return 'ok';
   }catch(e){console.error('joinVolDBエラー:',e);return 'error';}
 }
 
 // ======== QR参加記録 ========
-async function confirmScanDB(eventName,ptAmount,qrCodeId){
+async function confirmScanDB(eventName,ptAmount,qrCodeId,volunteerId){
   if(!sbClient)return;
   const {data:{user}}=await sbClient.auth.getUser();
   if(!user)return;
   await sbClient.from('participations').insert({
     user_id:user.id,
-    volunteer_id:null,
+    volunteer_id:volunteerId||null,
     qr_code_id:qrCodeId||null,
     pt_earned:ptAmount,
     note:eventName
@@ -1315,10 +1315,10 @@ async function handleQRScan(qrId){
     if(history.replaceState)history.replaceState({},'',location.pathname);
     sc=false;return;
   }
-  pendingScanData={name:data.title,pt:data.pt_reward||3,qrCodeId:qrId};
+  pendingScanData={name:data.title,pt:data.pt_reward||2,qrCodeId:qrId,volunteerId:data.volunteer_id||null};
   document.getElementById('rname').textContent=data.title;
   document.getElementById('rdate').textContent=data.date_text||'';
-  document.getElementById('rpt').textContent='+'+(data.pt_reward||3)+' WaPT';
+  document.getElementById('rpt').textContent='+'+(data.pt_reward||2)+' WaPT';
   document.getElementById('sres').classList.add('on');
   document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--teal-600);padding:8px;">読み取り完了</div>';
   if(history.replaceState)history.replaceState({},'',location.pathname);
@@ -1329,8 +1329,9 @@ function confScan(){
   const p=parseInt(document.getElementById('rpt').textContent.replace(/[^0-9]/g,''));
   const name=document.getElementById('rname').textContent;
   const qrId=pendingScanData?.qrCodeId||null;
+  const volId=pendingScanData?.volunteerId||null;
   ap(p,name,true);
-  confirmScanDB(name,p,qrId);
+  confirmScanDB(name,p,qrId,volId);
   pendingScanData=null;
   document.getElementById('sres').classList.remove('on');
   document.getElementById('qin').innerHTML='<div style="font-size:48px;">✓</div>';sc=false;
@@ -1340,7 +1341,7 @@ async function jv(btn){
   const card=btn.closest('[data-id]');
   const volId=card?.dataset?.id||null;
   const volTitle=card?.dataset?.title||card?.querySelector('.vt')?.textContent||'ボランティア';
-  const ptAmount=parseInt(card?.dataset?.pt||0);
+  const ptAmount=parseInt(card?.dataset?.ptApply||card?.dataset?.pt||0);
   btn.classList.add('jd');btn.textContent='登録中...';btn.disabled=true;
   if(volId&&sbClient){
     const result=await joinVolDB(volId,volTitle,ptAmount);
@@ -1582,10 +1583,13 @@ async function loadVolsDB(){
   const sl={open:'募集中',soon:'締切間近',full:'定員満了'};
   list.innerHTML=data.map(v=>{
     const isFull=v.status==='full';
-    return '<div class="vc" data-id="'+v.id+'" data-pt="'+(v.pt_reward||0)+'" data-title="'+(v.title||'').replace(/"/g,'&quot;')+'">'+
-      '<div class="vh"><div class="vt">'+(v.title||'')+'</div><span class="vtg '+(sc[v.status]||'to')+'">'+(sl[v.status]||v.status)+'</span></div>'+
+    const ptApply=v.pt_apply??1;
+    const ptAttend=v.pt_attend??2;
+    const ptLabel='応募 +'+ptApply+' / 参加 +'+ptAttend+' WaPT';
+    return '<div class="vc" data-id="'+v.id+'" data-pt-apply="'+ptApply+'" data-title="'+(v.title||'').replace(/"/g,'&quot;')+'">'+
+      '<div class="vh"><div class="vt">'+escHtml(v.title||'')+'</div><span class="vtg '+(sc[v.status]||'to')+'">'+(sl[v.status]||v.status)+'</span></div>'+
       '<div class="vm"><span>'+(v.date_text||'')+'</span>'+(v.capacity?'<span>定員 '+v.capacity+'名</span>':'')+'</div>'+
-      '<div class="vf"><div class="vp">'+(v.pt_reward?'+'+v.pt_reward+' WaPT':'')+'</div>'+
+      '<div class="vf"><div class="vp" style="font-size:12px;">'+ptLabel+'</div>'+
       (isFull?'<button class="bj" disabled>満員</button>':'<button class="bj" onclick="jv(this)">参加する</button>')+
       '</div></div>';
   }).join('');
