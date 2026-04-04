@@ -486,6 +486,7 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
   <!-- クーポン -->
   <div id="t-coup" class="tc h">
     <div class="ib">スタンプカード1枚コンプリートでノベルティ交換クーポンが発行されます。学校公開・PTA主催事業等で学校にお越しになった際に、PTA役員までお声がけください。ノベルティと交換させていただきます。</div>
+    <div id="novelty-roadmap" style="margin-bottom:1.25rem;"></div>
     <div class="st">利用可能なクーポン</div>
     <div id="cun"></div>
     <div class="st" id="cutit" style="display:none;margin-top:1rem;">使用済み</div>
@@ -1013,14 +1014,14 @@ async function loadThanksDB(){
 }
 
 // ======== クーポン発行 ========
-async function issueCouponDB(userId,novelty){
+async function issueCouponDB(userId,novelty,expireMonths=3){
   if(!sbClient||!userId)return null;
   const code='NMC-'+String(Date.now()).slice(-6);
-  const expires=new Date();expires.setMonth(expires.getMonth()+3);
+  const expires=new Date();expires.setMonth(expires.getMonth()+(expireMonths||3));
   const {data}=await sbClient.from('coupons').insert({
     user_id:userId,
     code:code,
-    novelty_name:novelty||'オリジナルトートバッグ',
+    novelty_name:novelty||'ノベルティ',
     type:'stamp',
     expires_at:expires.toISOString().split('T')[0],
     status:'unused'
@@ -1075,7 +1076,7 @@ function showMain(){
   el.style.display='block';el.classList.add('on');
   bsg();ra();
   if(sbClient){
-    loadThanksDB();loadCouponsDB();loadRecsDB();loadVolsDB();loadCalEventsDB();
+    loadThanksDB();loadCouponsDB();loadRecsDB();loadVolsDB();loadCalEventsDB();loadNoveltiesRoadmap();
     sbClient.auth.getUser().then(({data:{user}})=>{if(user){loadStats(user.id);loadHistoryDB(user.id);}});
   }
   if(pendingQrId){const qid=pendingQrId;pendingQrId=null;setTimeout(()=>handleQRScan(qid),400);}
@@ -1156,6 +1157,7 @@ function st(n){
   const el=document.getElementById(tmap[n]);if(el)el.classList.remove('h');
   document.querySelectorAll('.tab').forEach((e,i)=>e.classList.toggle('on',tabs[i]===n));
   if(n==='admin')loadAdminStatsDB();
+  if(n==='coup')loadNoveltiesRoadmap();
 }
 function rn(){
   const a=document.getElementById('narea');a.innerHTML='';
@@ -1239,13 +1241,42 @@ function ucb(){
   const b=document.getElementById('tcc');
   b.textContent=n>0?'クーポン('+n+')':'クーポン';b.style.color=n>0?'var(--purple-600)':'';
 }
-async function ic(){
-  const nv=document.getElementById('anov')?.value||'オリジナルトートバッグ';
+async function loadNoveltiesRoadmap(){
+  const el=document.getElementById('novelty-roadmap');
+  if(!el||!sbClient) return;
+  const{data}=await sbClient.from('novelties').select('sort_order,name,description').order('sort_order',{ascending:true}).limit(20).catch(()=>({data:null}));
+  if(!data?.length){el.innerHTML='';return;}
+  const cc=Math.floor(Math.floor(pt/PPS)/SPC);
+  el.innerHTML='<div class="st">ノベルティロードマップ</div>'
+    +data.map(n=>{
+      const done=cc>=n.sort_order;
+      const next=cc===n.sort_order-1;
+      const bg=done?'#edfaf2':next?'#fff8e6':'var(--cbp)';
+      const border=done?'#2a8c50':next?'#e0a800':'var(--cb1)';
+      const badgeBg=done?'#2a8c50':next?'#e0a800':'var(--gray-100)';
+      const badgeColor=done||next?'#fff':'var(--gray-600)';
+      return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:'+bg+';border-radius:8px;border:.5px solid '+border+';margin-bottom:6px;">'
+        +'<div style="min-width:28px;height:28px;border-radius:50%;background:'+badgeBg+';display:flex;align-items:center;justify-content:center;color:'+badgeColor+';font-size:12px;font-weight:600;flex-shrink:0;">'
+        +(done?'✓':String(n.sort_order))+'</div>'
+        +'<div><div style="font-size:13px;font-weight:500;color:var(--ct);">'+n.sort_order+'枚目：'+escHtml(n.name)+'</div>'
+        +(n.description?'<div style="font-size:11px;color:var(--cs);margin-top:2px;">'+escHtml(n.description)+'</div>':'')
+        +(next?'<div style="font-size:11px;color:#e0a800;margin-top:2px;">← 次のゴール</div>':'')
+        +'</div></div>';
+    }).join('');
+}
+async function ic(cardNum){
+  // ノベルティをDBから取得（達成回数に対応）
+  let nv='ノベルティ',expireMonths=3;
+  if(sbClient&&cardNum){
+    const{data:nvData}=await sbClient.from('novelties').select('name,expire_months').eq('sort_order',cardNum).single().catch(()=>({data:null}));
+    if(nvData){nv=nvData.name||nv;expireMonths=nvData.expire_months||3;}
+  }
+  if(nv==='ノベルティ'){nv=document.getElementById('anov')?.value||'ノベルティ';}
   let code='NMC-'+String(cs++).padStart(4,'0');
   if(sbClient){
     const{data:{user}}=await sbClient.auth.getUser().catch(()=>({data:{user:null}}));
     if(user){
-      const d=await issueCouponDB(user.id,nv);
+      const d=await issueCouponDB(user.id,nv,expireMonths);
       if(d){
         code=d.code||d.id||code;
         cups.unshift({id:code,label:'ノベルティ交換券',novelty:d.novelty_name||nv,
@@ -1254,12 +1285,13 @@ async function ic(){
           status:'unused'});
         rc();document.getElementById('pcc').textContent=code;sp('pop-cp',2500);
         notifs.unshift({t:'pu',i:'🎟',m:'クーポン '+code+' が発行されました！',id:'c'+cs});rn();
+        loadNoveltiesRoadmap();
         return;
       }
     }
   }
   // オフラインフォールバック
-  const t=new Date(),e2=new Date(t);e2.setMonth(e2.getMonth()+3);
+  const t=new Date(),e2=new Date(t);e2.setMonth(e2.getMonth()+expireMonths);
   const fmt=d=>d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');
   cups.unshift({id:code,label:'ノベルティ交換券',novelty:nv,issued:fmt(t),expires:fmt(e2),status:'unused'});
   rc();document.getElementById('pcc').textContent=code;sp('pop-cp',2500);
@@ -1270,7 +1302,7 @@ function ap(p,lbl,isQ){
   pt+=p;document.getElementById('tpt').textContent=pt;rs();
   const ca=Math.floor(Math.floor(pt/PPS)/SPC);
   document.getElementById('pptn').textContent='+'+p+' WaPT';sp('pop-pt',1500);
-  if(ca>cb)setTimeout(()=>{for(let i=cb;i<ca;i++)ic();},1600);
+  if(ca>cb)setTimeout(()=>{for(let i=cb;i<ca;i++)ic(i+1);},1600);
   if(lbl){
     const l=document.getElementById('hlist');
     const r=document.createElement('div');r.className='hr';

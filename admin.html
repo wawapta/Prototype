@@ -354,20 +354,30 @@ tr:hover td{background:var(--g50);}
 
     <!-- ノベルティ設定 -->
     <div id="tab-novelty" class="tab-content">
-      <div class="info-box">スタンプカード1枚（スタンプ5個＝25WaPT）コンプリートで自動発行されるクーポンの交換対象を設定します。</div>
+      <div class="info-box">スタンプカードを完成するたびに異なるノベルティを設定できます。達成回数に応じたクーポンが自動発行されます。ユーザーのクーポン画面にもロードマップとして表示されます。</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div class="card">
-          <div class="card-title">現在のノベルティ設定</div>
-          <div class="field"><label>ノベルティ名</label><input id="novelty-name" value="オリジナルトートバッグ"></div>
-          <div class="field"><label>説明（任意）</label><textarea id="novelty-desc" placeholder="例：WaWaオリジナルデザインのエコバッグです">WaWaオリジナルデザインのエコバッグです</textarea></div>
-          <div class="field"><label>在庫数</label><input id="novelty-stock" type="number" value="30"></div>
-          <div class="field"><label>クーポン有効期限（発行後）</label>
-            <select id="novelty-expire" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-              <option value="1">1ヶ月</option><option value="3" selected>3ヶ月</option><option value="6">6ヶ月</option><option value="12">1年</option>
-            </select>
+        <div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">ノベルティ一覧（達成順）</div>
+            <div id="novelty-list" style="display:flex;flex-direction:column;gap:8px;">
+              <div style="text-align:center;color:var(--ts);font-size:13px;padding:1rem;">読み込み中...</div>
+            </div>
+            <div id="novelty-saved" style="display:none;margin-top:8px;padding:8px 12px;background:var(--g50);border-radius:8px;font-size:13px;color:var(--g600);">✓ 保存しました</div>
           </div>
-          <button class="btn primary" style="width:100%;" onclick="saveNovelty()">保存する</button>
-          <div id="novelty-saved" style="display:none;margin-top:8px;padding:8px 12px;background:var(--g50);border-radius:8px;font-size:13px;color:var(--g600);">✓ 保存しました</div>
+          <div class="card">
+            <div class="card-title">ノベルティを追加</div>
+            <div class="field"><label>達成回数（何枚目のカード）</label><input id="nv-add-order" type="number" min="1" placeholder="例：1（1枚目完成で贈る）"></div>
+            <div class="field"><label>ノベルティ名</label><input id="nv-add-name" placeholder="例：オリジナルトートバッグ"></div>
+            <div class="field"><label>説明（任意）</label><textarea id="nv-add-desc" placeholder="例：WaWaオリジナルデザインのエコバッグです" rows="2" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);resize:vertical;"></textarea></div>
+            <div class="field"><label>在庫数</label><input id="nv-add-stock" type="number" value="30"></div>
+            <div class="field"><label>クーポン有効期限（発行後）</label>
+              <select id="nv-add-expire" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
+                <option value="1">1ヶ月</option><option value="3" selected>3ヶ月</option><option value="6">6ヶ月</option><option value="12">1年</option>
+              </select>
+            </div>
+            <button class="btn primary" style="width:100%;margin-top:4px;" onclick="addNovelty()">追加する</button>
+            <div id="novelty-added" style="display:none;margin-top:8px;padding:8px 12px;background:var(--g50);border-radius:8px;font-size:13px;color:var(--g600);">✓ 追加しました</div>
+          </div>
         </div>
         <div class="card">
           <div class="card-title">ノベルティ交換履歴</div>
@@ -836,7 +846,7 @@ function nav(name){
   if(name==='points'){loadPtUsers();loadPtLog();}
   if(name==='notice') loadNotices();
   if(name==='qr'){loadQRHistory();loadQrVolSelect();}
-  if(name==='novelty'){loadNovelty();loadNoveltyHistory();}
+  if(name==='novelty'){loadNovelties();loadNoveltyHistory();}
   if(name==='coupon') loadCoupons();
   if(name==='thanks') loadThanks();
   if(name==='calendar') loadCalendar();
@@ -1350,31 +1360,75 @@ function showSaved(id){
   setTimeout(()=>el.style.display='none',2500);
 }
 
-async function saveNovelty(){
-  const name=(document.getElementById('novelty-name').value||'').trim();
-  if(!name){alert('ノベルティ名を入力してください');return;}
-  const desc=(document.getElementById('novelty-desc').value||'').trim();
-  const stock=parseInt(document.getElementById('novelty-stock').value)||0;
-  const expire=parseInt(document.getElementById('novelty-expire').value)||3;
-  if(window.adminClient){
-    const{error}=await window.adminClient.from('novelties').upsert({id:1,name,description:desc,stock,expire_months:expire},{onConflict:'id'});
-    if(error){alert('保存に失敗しました: '+error.message);return;}
+async function loadNovelties(){
+  const list=document.getElementById('novelty-list');
+  if(!list||!window.adminClient) return;
+  const{data,error}=await window.adminClient.from('novelties').select('*').order('sort_order',{ascending:true});
+  if(error||!data?.length){
+    list.innerHTML='<div style="text-align:center;color:var(--ts);font-size:13px;padding:1rem;">'+(error?'エラー：'+escHtml(error.message):'ノベルティが未設定です。下のフォームから追加してください。')+'</div>';
+    return;
   }
+  list.innerHTML=data.map(n=>`
+    <div style="background:var(--cbs);border-radius:8px;padding:12px;border:0.5px solid var(--cb1);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:12px;font-weight:600;color:#2878d6;background:#edf6ff;padding:2px 10px;border-radius:12px;">${escHtml(String(n.sort_order))}枚目達成</span>
+        <button onclick="deleteNovelty(${n.id})" style="padding:3px 10px;border-radius:6px;border:0.5px solid #f88;background:transparent;color:#c00;font-size:12px;cursor:pointer;">削除</button>
+      </div>
+      <div style="margin-bottom:6px;"><div style="font-size:11px;color:var(--ts);margin-bottom:3px;">ノベルティ名</div><input data-nid="${n.id}" data-field="name" value="${escHtml(n.name||'')}" style="width:100%;padding:7px 10px;border-radius:6px;border:0.5px solid var(--cb1);background:var(--cbp);font-size:13px;color:var(--t);font-family:var(--fs);box-sizing:border-box;"></div>
+      <div style="margin-bottom:6px;"><div style="font-size:11px;color:var(--ts);margin-bottom:3px;">説明</div><input data-nid="${n.id}" data-field="description" value="${escHtml(n.description||'')}" style="width:100%;padding:7px 10px;border-radius:6px;border:0.5px solid var(--cb1);background:var(--cbp);font-size:13px;color:var(--t);font-family:var(--fs);box-sizing:border-box;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div><div style="font-size:11px;color:var(--ts);margin-bottom:3px;">在庫</div><input type="number" data-nid="${n.id}" data-field="stock" value="${n.stock||0}" style="width:100%;padding:7px 10px;border-radius:6px;border:0.5px solid var(--cb1);background:var(--cbp);font-size:13px;color:var(--t);font-family:var(--fs);box-sizing:border-box;"></div>
+        <div><div style="font-size:11px;color:var(--ts);margin-bottom:3px;">有効期限</div>
+          <select data-nid="${n.id}" data-field="expire_months" style="width:100%;padding:7px 10px;border-radius:6px;border:0.5px solid var(--cb1);background:var(--cbp);font-size:13px;color:var(--t);font-family:var(--fs);">
+            <option value="1" ${n.expire_months==1?'selected':''}>1ヶ月</option>
+            <option value="3" ${n.expire_months==3||!n.expire_months?'selected':''}>3ヶ月</option>
+            <option value="6" ${n.expire_months==6?'selected':''}>6ヶ月</option>
+            <option value="12" ${n.expire_months==12?'selected':''}>1年</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="saveNoveltyItem(${n.id})" style="width:100%;padding:7px;background:#2878d6;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-family:var(--fs);">保存</button>
+    </div>
+  `).join('');
+}
+
+async function saveNoveltyItem(id){
+  const inputs=document.querySelectorAll(`[data-nid="${id}"]`);
+  const updates={};
+  inputs.forEach(el=>{
+    const f=el.dataset.field;
+    updates[f]=(f==='stock'||f==='expire_months')?parseInt(el.value)||0:el.value;
+  });
+  if(!updates.name){alert('ノベルティ名を入力してください');return;}
+  const{error}=await window.adminClient.from('novelties').update(updates).eq('id',id);
+  if(error){alert('保存に失敗しました: '+error.message);return;}
   showSaved('novelty-saved');
 }
 
-async function loadNovelty(){
-  if(!window.adminClient) return;
-  const{data}=await window.adminClient.from('novelties').select('*').eq('id',1).single();
-  if(!data) return;
-  const n=document.getElementById('novelty-name');
-  const d=document.getElementById('novelty-desc');
-  const s=document.getElementById('novelty-stock');
-  const e=document.getElementById('novelty-expire');
-  if(n) n.value=data.name||'';
-  if(d) d.value=data.description||'';
-  if(s) s.value=data.stock||0;
-  if(e) e.value=String(data.expire_months||3);
+async function addNovelty(){
+  const order=parseInt(document.getElementById('nv-add-order').value);
+  const name=(document.getElementById('nv-add-name').value||'').trim();
+  if(!order||!name){alert('達成回数とノベルティ名は必須です');return;}
+  const desc=(document.getElementById('nv-add-desc').value||'').trim();
+  const stock=parseInt(document.getElementById('nv-add-stock').value)||0;
+  const expire=parseInt(document.getElementById('nv-add-expire').value)||3;
+  if(!window.adminClient){alert('ログインが必要です');return;}
+  const{error}=await window.adminClient.from('novelties').insert({sort_order:order,name,description:desc,stock,expire_months:expire});
+  if(error){alert('追加に失敗しました: '+error.message);return;}
+  document.getElementById('nv-add-order').value='';
+  document.getElementById('nv-add-name').value='';
+  document.getElementById('nv-add-desc').value='';
+  document.getElementById('nv-add-stock').value='30';
+  document.getElementById('nv-add-expire').value='3';
+  showSaved('novelty-added');
+  loadNovelties();
+}
+
+async function deleteNovelty(id){
+  if(!confirm('このノベルティを削除しますか？')) return;
+  const{error}=await window.adminClient.from('novelties').delete().eq('id',id);
+  if(error){alert('削除に失敗しました: '+error.message);return;}
+  loadNovelties();
 }
 
 async function loadNoveltyHistory(){
