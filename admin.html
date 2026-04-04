@@ -330,6 +330,10 @@ tr:hover td{background:var(--g50);}
             </select>
           </div>
           <div class="field"><label>有効期限</label><input type="date" id="qr-expire"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--b50);border-radius:8px;border:0.5px solid var(--b100);">
+            <input type="checkbox" id="qr-auto-notice" style="width:16px;height:16px;cursor:pointer;">
+            <label for="qr-auto-notice" style="font-size:13px;color:var(--b600);cursor:pointer;">発行時にお知らせを自動投稿する</label>
+          </div>
           <button class="btn primary" style="width:100%;" onclick="genQR()">QRコードを発行する</button>
         </div>
         <div class="card">
@@ -719,6 +723,19 @@ tr:hover td{background:var(--g50);}
   </div>
 </div>
 
+<!-- モーダル：応募者リスト -->
+<div class="modal-overlay" id="modal-applicants">
+  <div class="modal" style="width:520px;">
+    <div class="modal-title" id="modal-applicants-title">応募者リスト</div>
+    <div id="modal-applicants-body" style="min-height:100px;">
+      <div style="text-align:center;padding:2rem;color:var(--ts);">読み込み中...</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('modal-applicants')">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ======== 管理者認証チェック ========
 (async()=>{
@@ -966,7 +983,7 @@ async function renderVolunteers(){
       '<td style="color:var(--g600);">+'+ptApply+' PT</td>'+
       '<td style="color:var(--a400);">+'+ptAttend+' PT</td>'+
       '<td><span class="badge '+badge+'">'+label+'</span></td>'+
-      '<td><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openVolModal(\''+v.id+'\')">編集</button></td>'+
+      '<td style="display:flex;gap:4px;"><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openVolModal(\''+v.id+'\')">編集</button><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openApplicantsModal(\''+v.id+'\',\''+escHtml(v.title||'').replace(/'/g,"&#39;")+'\')" title="応募者リスト">👥 '+count+'</button></td>'+
     '</tr>';
   }).join('');
 }
@@ -1165,6 +1182,54 @@ async function confirmDeleteUser(){
 function openModal(id){document.getElementById(id).classList.add('on');}
 function closeModal(id){document.getElementById(id).classList.remove('on');}
 
+async function openApplicantsModal(volId, volTitle){
+  document.getElementById('modal-applicants-title').textContent=(volTitle||'ボランティア')+'の応募者リスト';
+  const body=document.getElementById('modal-applicants-body');
+  body.innerHTML='<div style="text-align:center;padding:2rem;color:var(--ts);">読み込み中...</div>';
+  openModal('modal-applicants');
+  if(!window.adminClient){body.innerHTML='<div style="color:var(--r600);padding:1rem;">Supabase未接続</div>';return;}
+  // participationsからvolunteer_idで絞り込み（apply + qr_scan両方）
+  const{data,error}=await window.adminClient
+    .from('point_logs')
+    .select('user_id,reason,created_at,profiles(nickname,emoji,email)')
+    .eq('reason','volunteer_apply')
+    .ilike('note',volTitle||'')
+    .order('created_at');
+  // participationsからも取得
+  const{data:partData}=await window.adminClient
+    .from('participations')
+    .select('user_id,created_at,profiles(nickname,emoji,email)')
+    .eq('volunteer_id',volId)
+    .order('created_at');
+  if(error){body.innerHTML='<div style="color:var(--r600);padding:1rem;">読み込みエラー: '+escHtml(error.message)+'</div>';return;}
+  // 応募者セット（point_logs）
+  const applicants=new Map();
+  (data||[]).forEach(r=>{
+    const p=r.profiles;
+    if(!p)return;
+    applicants.set(r.user_id,{uid:r.user_id,nick:p.nickname||'—',emoji:p.emoji||'👤',email:p.email||'',attended:false,appliedAt:r.created_at});
+  });
+  // QRスキャン済み（participations）
+  const attendedIds=new Set();
+  (partData||[]).forEach(r=>{
+    attendedIds.add(r.user_id);
+    if(!applicants.has(r.user_id)&&r.profiles){
+      const p=r.profiles;
+      applicants.set(r.user_id,{uid:r.user_id,nick:p.nickname||'—',emoji:p.emoji||'👤',email:p.email||'',attended:true,appliedAt:r.created_at});
+    }
+  });
+  applicants.forEach(a=>{if(attendedIds.has(a.uid))a.attended=true;});
+  if(!applicants.size){body.innerHTML='<div style="text-align:center;padding:2rem;color:var(--ts);">まだ応募者がいません</div>';return;}
+  const rows=[...applicants.values()];
+  body.innerHTML='<div style="font-size:12px;color:var(--ts);margin-bottom:10px;">応募者数：'+rows.length+'名'+(attendedIds.size?' / 参加済み：'+attendedIds.size+'名':'')+'</div>'
+    +'<table style="width:100%;border-collapse:collapse;">'
+    +'<thead><tr><th style="font-size:11px;color:var(--ts);text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--cb1);">名前</th><th style="font-size:11px;color:var(--ts);text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--cb1);">メール</th><th style="font-size:11px;color:var(--ts);padding:6px 8px;border-bottom:0.5px solid var(--cb1);">参加</th></tr></thead>'
+    +'<tbody>'+rows.map(a=>'<tr><td style="padding:7px 8px;font-size:13px;">'+escHtml(a.emoji)+' '+escHtml(a.nick)+'</td>'
+      +'<td style="padding:7px 8px;font-size:12px;color:var(--ts);">'+escHtml(a.email)+'</td>'
+      +'<td style="padding:7px 8px;text-align:center;">'+(a.attended?'<span style="color:#2e9e6b;font-weight:500;">✓</span>':'—')+'</td></tr>').join('')
+    +'</tbody></table>';
+}
+
 async function loadQrVolSelect(){
   const sel=document.getElementById('qr-volunteer');
   if(!sel||!window.adminClient)return;
@@ -1190,13 +1255,22 @@ async function genQR(){
   const date=document.getElementById('qr-date').value.trim();
   const pt=parseInt(document.getElementById('qr-pt').value)||2;
   const expire=document.getElementById('qr-expire').value||null;
+  const autoNotice=document.getElementById('qr-auto-notice')?.checked||false;
   let qrId=null;
   if(window.adminClient){
     const{data,error}=await window.adminClient.from('qr_codes').insert({
       title:name,date_text:date,pt_reward:pt,expires_at:expire||null,scan_count:0,
       volunteer_id:volId||null
     }).select('id').single();
-    if(!error&&data) qrId=data.id;
+    if(!error&&data){
+      qrId=data.id;
+      // お知らせ自動投稿
+      if(autoNotice){
+        const noticeTitle=name+' QRコードを発行しました';
+        const noticeBody='【'+name+'】'+(date?' （'+date+'）':'')+'のQRコードが発行されました。当日会場のQRコードをスキャンして参加記録してください。参加で +'+ pt+' WaPT 獲得できます。';
+        await window.adminClient.from('notices').insert({title:noticeTitle,body:noticeBody,target:'all'}).catch(()=>{});
+      }
+    }
   }
   const baseUrl=window.location.href.replace(/admin\.html.*$/,'index.html');
   const qrContent=qrId?(baseUrl+'?qr_id='+qrId):('wawa:'+name);

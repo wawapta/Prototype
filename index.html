@@ -444,6 +444,14 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
       <div class="rh"><div class="ri">✓</div><div><div style="font-size:14px;font-weight:500;" id="rname"></div><div style="font-size:12px;color:var(--cs);margin-top:2px;" id="rdate"></div></div></div>
       <div style="display:flex;align-items:center;justify-content:space-between;background:var(--amber-50);border-radius:var(--rm);padding:10px 14px;"><span style="font-size:13px;color:var(--amber-800);">付与ポイント</span><span style="font-size:20px;font-weight:600;color:var(--amber-800);" id="rpt"></span></div>
       <button class="cb" onclick="confScan()">参加を記録してWaPTをもらう</button>
+      <div id="qr-apply-prompt" style="display:none;margin-top:10px;background:var(--teal-50,#f0fdfa);border:1px solid var(--teal-200,#99f6e4);border-radius:var(--rm);padding:12px 14px;">
+        <div style="font-size:13px;font-weight:500;color:var(--teal-800,#134e4a);margin-bottom:6px;">このボランティアに応募しますか？</div>
+        <div style="font-size:12px;color:var(--teal-700,#0f766e);margin-bottom:8px;">応募登録で <strong id="qr-apply-pt">+1</strong> WaPT 追加獲得</div>
+        <div style="display:flex;gap:8px;">
+          <button class="cb" style="flex:1;background:var(--teal-500,#14b8a6);" onclick="applyFromQR()">応募する</button>
+          <button style="flex:1;padding:10px;border:1px solid var(--teal-300,#5eead4);border-radius:var(--rm);background:transparent;color:var(--teal-700,#0f766e);font-size:13px;cursor:pointer;" onclick="document.getElementById('qr-apply-prompt').style.display='none'">スキップ</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -800,6 +808,9 @@ async function loadProfile(user){
 
 async function loadStats(userId){
   if(!sbClient)return;
+  // total_ptをDBから同期してスタンプカードを再描画
+  const {data:ptData}=await sbClient.from('profiles').select('total_pt').eq('id',userId).single();
+  if(ptData&&ptData.total_pt!=null){pt=ptData.total_pt;document.getElementById('tpt').textContent=pt;rs();}
   // 参加回数
   const {count:volCount}=await sbClient.from('participations').select('*',{count:'exact',head:true}).eq('user_id',userId);
   if(volCount!=null) document.getElementById('sv').textContent=volCount;
@@ -1307,11 +1318,11 @@ async function handleQRScan(qrId){
     document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--coral-600);padding:8px;">このQRコードは有効期限切れです</div>';
     sc=false;return;
   }
-  // 本日の二重スキャンチェック
-  const today=new Date().toISOString().split('T')[0];
-  const{data:already}=await sbClient.from('participations').select('id').eq('user_id',(await sbClient.auth.getUser()).data.user?.id).eq('qr_code_id',qrId).gte('created_at',today+'T00:00:00').maybeSingle();
+  // QRコード単位の二重スキャンチェック（日付問わず1回限り）
+  const{data:{user}:qrUser}=await sbClient.auth.getUser();
+  const{data:already}=await sbClient.from('participations').select('id').eq('user_id',qrUser?.id).eq('qr_code_id',qrId).maybeSingle();
   if(already){
-    document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--coral-600);padding:8px;">このQRコードは本日すでに読み取り済みです</div>';
+    document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--coral-600);padding:8px;">このQRコードはすでに読み取り済みです</div>';
     if(history.replaceState)history.replaceState({},'',location.pathname);
     sc=false;return;
   }
@@ -1320,6 +1331,22 @@ async function handleQRScan(qrId){
   document.getElementById('rdate').textContent=data.date_text||'';
   document.getElementById('rpt').textContent='+'+(data.pt_reward||2)+' WaPT';
   document.getElementById('sres').classList.add('on');
+  // 応募促進プロンプト：volunteer_idがあり未応募の場合に表示
+  const applyPrompt=document.getElementById('qr-apply-prompt');
+  applyPrompt.style.display='none';
+  if(data.volunteer_id){
+    const{data:appliedAlready}=await sbClient.from('participations').select('id').eq('user_id',qrUser?.id).eq('volunteer_id',data.volunteer_id).eq('note','apply').maybeSingle();
+    // point_logsでvolunteer_apply確認
+    const{data:applyLog}=await sbClient.from('point_logs').select('id').eq('user_id',qrUser?.id).eq('reason','volunteer_apply').ilike('note',data.title).maybeSingle();
+    if(!appliedAlready&&!applyLog){
+      const ptApply=data.pt_apply??1;
+      document.getElementById('qr-apply-pt').textContent='+'+ptApply;
+      applyPrompt.dataset.volId=data.volunteer_id;
+      applyPrompt.dataset.volTitle=data.title;
+      applyPrompt.dataset.ptApply=ptApply;
+      applyPrompt.style.display='block';
+    }
+  }
   document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--teal-600);padding:8px;">読み取り完了</div>';
   if(history.replaceState)history.replaceState({},'',location.pathname);
   sc=false;
@@ -1334,7 +1361,22 @@ function confScan(){
   confirmScanDB(name,p,qrId,volId);
   pendingScanData=null;
   document.getElementById('sres').classList.remove('on');
+  document.getElementById('qr-apply-prompt').style.display='none';
   document.getElementById('qin').innerHTML='<div style="font-size:48px;">✓</div>';sc=false;
+}
+
+async function applyFromQR(){
+  const prompt=document.getElementById('qr-apply-prompt');
+  const volId=prompt.dataset.volId;
+  const volTitle=prompt.dataset.volTitle||'ボランティア';
+  const ptAmount=parseInt(prompt.dataset.ptApply||1);
+  prompt.style.display='none';
+  if(!volId||!sbClient)return;
+  const result=await joinVolDB(volId,volTitle,ptAmount);
+  if(result==='ok'){
+    if(ptAmount>0) ap(ptAmount,volTitle,false);
+    const nb=document.getElementById('jntf');if(nb){nb.classList.add('on');setTimeout(()=>nb.classList.remove('on'),2500);}
+  }
 }
 async function jv(btn){
   if(btn.classList.contains('jd'))return;
@@ -1577,20 +1619,37 @@ async function loadRecsDB(){
 async function loadVolsDB(){
   const list=document.getElementById('vol-list');if(!list)return;
   if(!sbClient){list.innerHTML='<div style="text-align:center;padding:1.5rem;font-size:13px;color:var(--cs);">ログインが必要です</div>';return;}
-  const{data}=await sbClient.from('volunteers').select('*').in('status',['open','soon','full']).order('created_at');
+  const[volRes,userRes]=await Promise.all([
+    sbClient.from('volunteers').select('*').in('status',['open','soon','full']).order('created_at'),
+    sbClient.auth.getUser()
+  ]);
+  const data=volRes.data;
   if(!data||!data.length){list.innerHTML='<div style="text-align:center;padding:1.5rem;font-size:13px;color:var(--cs);">募集中のボランティアはありません</div>';return;}
-  const sc={open:'to',soon:'ts',full:'tf'};
+  const userId=userRes.data?.user?.id;
+  // 応募済みボランティアIDを取得
+  let appliedIds=new Set();
+  if(userId){
+    const{data:appData}=await sbClient.from('point_logs').select('note').eq('user_id',userId).eq('reason','volunteer_apply');
+    if(appData) appData.forEach(r=>{if(r.note) appliedIds.add(r.note);});
+    // participationsテーブルでも確認
+    const{data:partData}=await sbClient.from('participations').select('volunteer_id').eq('user_id',userId).not('volunteer_id','is',null);
+    if(partData) partData.forEach(r=>{if(r.volunteer_id) appliedIds.add(r.volunteer_id);});
+  }
+  const sc2={open:'to',soon:'ts',full:'tf'};
   const sl={open:'募集中',soon:'締切間近',full:'定員満了'};
   list.innerHTML=data.map(v=>{
     const isFull=v.status==='full';
     const ptApply=v.pt_apply??1;
     const ptAttend=v.pt_attend??2;
     const ptLabel='応募 +'+ptApply+' / 参加 +'+ptAttend+' WaPT';
+    const isApplied=appliedIds.has(v.id)||appliedIds.has(v.title);
+    const appliedBadge=isApplied?'<span style="background:var(--teal-100,#ccfbf1);color:var(--teal-700,#0f766e);font-size:11px;padding:2px 8px;border-radius:9999px;font-weight:500;">✓ 応募済み</span>':'';
+    const qrHint=isApplied?'<div style="font-size:11px;color:var(--teal-600,#0d9488);margin-top:4px;">当日QRスキャンで +'+ptAttend+' WaPT</div>':'';
     return '<div class="vc" data-id="'+v.id+'" data-pt-apply="'+ptApply+'" data-title="'+(v.title||'').replace(/"/g,'&quot;')+'">'+
-      '<div class="vh"><div class="vt">'+escHtml(v.title||'')+'</div><span class="vtg '+(sc[v.status]||'to')+'">'+(sl[v.status]||v.status)+'</span></div>'+
+      '<div class="vh"><div class="vt">'+escHtml(v.title||'')+'</div><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;"><span class="vtg '+(sc2[v.status]||'to')+'">'+(sl[v.status]||v.status)+'</span>'+appliedBadge+'</div></div>'+
       '<div class="vm"><span>'+(v.date_text||'')+'</span>'+(v.capacity?'<span>定員 '+v.capacity+'名</span>':'')+'</div>'+
-      '<div class="vf"><div class="vp" style="font-size:12px;">'+ptLabel+'</div>'+
-      (isFull?'<button class="bj" disabled>満員</button>':'<button class="bj" onclick="jv(this)">参加する</button>')+
+      '<div class="vf"><div><div class="vp" style="font-size:12px;">'+ptLabel+'</div>'+qrHint+'</div>'+
+      (isFull?'<button class="bj" disabled>満員</button>':isApplied?'<button class="bj" style="background:var(--teal-500,#14b8a6);" disabled>応募済み</button>':'<button class="bj" onclick="jv(this)">参加する</button>')+
       '</div></div>';
   }).join('');
 }
@@ -1617,6 +1676,30 @@ async function loadCalEventsDB(){
 }
 
 function ra(){rn();rs();rc();rfb();rrec();bsg();ram();}
+
+// ======== Service Worker 登録 ========
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./service-worker.js').then(reg=>{
+    console.log('SW登録完了:', reg.scope);
+  }).catch(e=>console.warn('SW登録失敗:', e));
+
+  // SW → ページへのメッセージ受信（オフラインキュー同期完了通知）
+  navigator.serviceWorker.addEventListener('message', event=>{
+    if(event.data?.type==='SYNC_COMPLETE'){
+      notifs.unshift({t:'pi',i:'📡',m:'オフライン中の参加記録を同期しました',id:'sw'+Date.now()});
+      rn();
+    }
+  });
+}
+
+// オンライン復帰時に手動同期をトリガー
+window.addEventListener('online', ()=>{
+  if(navigator.serviceWorker?.controller){
+    navigator.serviceWorker.controller.postMessage({type:'FLUSH_QUEUE'});
+  }
+  notifs.unshift({t:'pi',i:'🌐',m:'オンラインに復帰しました',id:'net'+Date.now()});
+  rn();
+});
 </script>
 </body>
 </html>
