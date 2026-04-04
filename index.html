@@ -1319,7 +1319,7 @@ async function handleQRScan(qrId){
     sc=false;return;
   }
   // QRコード単位の二重スキャンチェック（日付問わず1回限り）
-  const{data:{user}:qrUser}=await sbClient.auth.getUser();
+  const{data:{user:qrUser}}=await sbClient.auth.getUser();
   const{data:already}=await sbClient.from('participations').select('id').eq('user_id',qrUser?.id).eq('qr_code_id',qrId).maybeSingle();
   if(already){
     document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--coral-600);padding:8px;">このQRコードはすでに読み取り済みです</div>';
@@ -1335,10 +1335,9 @@ async function handleQRScan(qrId){
   const applyPrompt=document.getElementById('qr-apply-prompt');
   applyPrompt.style.display='none';
   if(data.volunteer_id){
-    const{data:appliedAlready}=await sbClient.from('participations').select('id').eq('user_id',qrUser?.id).eq('volunteer_id',data.volunteer_id).eq('note','apply').maybeSingle();
-    // point_logsでvolunteer_apply確認
-    const{data:applyLog}=await sbClient.from('point_logs').select('id').eq('user_id',qrUser?.id).eq('reason','volunteer_apply').ilike('note',data.title).maybeSingle();
-    if(!appliedAlready&&!applyLog){
+    // participationsで応募済み確認（volunteer_idで検索）
+    const{data:applyLog}=await sbClient.from('participations').select('id').eq('user_id',qrUser?.id).eq('volunteer_id',data.volunteer_id).maybeSingle();
+    if(!applyLog){
       const ptApply=data.pt_apply??1;
       document.getElementById('qr-apply-pt').textContent='+'+ptApply;
       applyPrompt.dataset.volId=data.volunteer_id;

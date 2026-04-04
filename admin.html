@@ -983,7 +983,7 @@ async function renderVolunteers(){
       '<td style="color:var(--g600);">+'+ptApply+' PT</td>'+
       '<td style="color:var(--a400);">+'+ptAttend+' PT</td>'+
       '<td><span class="badge '+badge+'">'+label+'</span></td>'+
-      '<td style="display:flex;gap:4px;"><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openVolModal(\''+v.id+'\')">編集</button><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openApplicantsModal(\''+v.id+'\',\''+escHtml(v.title||'').replace(/'/g,"&#39;")+'\')" title="応募者リスト">👥 '+count+'</button></td>'+
+      '<td style="display:flex;gap:4px;"><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openVolModal(\''+v.id+'\')">編集</button><button class="btn" style="font-size:12px;padding:4px 10px;" onclick="openApplicantsModal(this.dataset.vid,this.dataset.vtitle)" data-vid="'+escHtml(v.id)+'" data-vtitle="'+escHtml(v.title||'')+'" title="応募者リスト">👥 '+count+'</button></td>'+
     '</tr>';
   }).join('');
 }
@@ -1188,40 +1188,35 @@ async function openApplicantsModal(volId, volTitle){
   body.innerHTML='<div style="text-align:center;padding:2rem;color:var(--ts);">読み込み中...</div>';
   openModal('modal-applicants');
   if(!window.adminClient){body.innerHTML='<div style="color:var(--r600);padding:1rem;">Supabase未接続</div>';return;}
-  // participationsからvolunteer_idで絞り込み（apply + qr_scan両方）
+  // participationsをvolunteer_idで絞り込み。qr_code_idの有無で応募/参加を区別
   const{data,error}=await window.adminClient
-    .from('point_logs')
-    .select('user_id,reason,created_at,profiles(nickname,emoji,email)')
-    .eq('reason','volunteer_apply')
-    .ilike('note',volTitle||'')
-    .order('created_at');
-  // participationsからも取得
-  const{data:partData}=await window.adminClient
     .from('participations')
-    .select('user_id,created_at,profiles(nickname,emoji,email)')
+    .select('user_id,qr_code_id,created_at,profiles(nickname,emoji,email)')
     .eq('volunteer_id',volId)
     .order('created_at');
   if(error){body.innerHTML='<div style="color:var(--r600);padding:1rem;">読み込みエラー: '+escHtml(error.message)+'</div>';return;}
-  // 応募者セット（point_logs）
+  // ユーザーごとに集計（同一ユーザーの応募+参加レコードをマージ）
   const applicants=new Map();
   (data||[]).forEach(r=>{
-    const p=r.profiles;
-    if(!p)return;
-    applicants.set(r.user_id,{uid:r.user_id,nick:p.nickname||'—',emoji:p.emoji||'👤',email:p.email||'',attended:false,appliedAt:r.created_at});
-  });
-  // QRスキャン済み（participations）
-  const attendedIds=new Set();
-  (partData||[]).forEach(r=>{
-    attendedIds.add(r.user_id);
-    if(!applicants.has(r.user_id)&&r.profiles){
-      const p=r.profiles;
-      applicants.set(r.user_id,{uid:r.user_id,nick:p.nickname||'—',emoji:p.emoji||'👤',email:p.email||'',attended:true,appliedAt:r.created_at});
+    const p=Array.isArray(r.profiles)?r.profiles[0]:r.profiles;
+    const isAttended=!!r.qr_code_id;
+    if(applicants.has(r.user_id)){
+      if(isAttended) applicants.get(r.user_id).attended=true;
+    } else {
+      applicants.set(r.user_id,{
+        uid:r.user_id,
+        nick:(p?.nickname)||'—',
+        emoji:(p?.emoji)||'👤',
+        email:(p?.email)||'',
+        attended:isAttended,
+        appliedAt:r.created_at
+      });
     }
   });
-  applicants.forEach(a=>{if(attendedIds.has(a.uid))a.attended=true;});
   if(!applicants.size){body.innerHTML='<div style="text-align:center;padding:2rem;color:var(--ts);">まだ応募者がいません</div>';return;}
   const rows=[...applicants.values()];
-  body.innerHTML='<div style="font-size:12px;color:var(--ts);margin-bottom:10px;">応募者数：'+rows.length+'名'+(attendedIds.size?' / 参加済み：'+attendedIds.size+'名':'')+'</div>'
+  const attendedCount=rows.filter(r=>r.attended).length;
+  body.innerHTML='<div style="font-size:12px;color:var(--ts);margin-bottom:10px;">応募者数：'+rows.length+'名'+(attendedCount?' / 参加済み：'+attendedCount+'名':'')+'</div>'
     +'<table style="width:100%;border-collapse:collapse;">'
     +'<thead><tr><th style="font-size:11px;color:var(--ts);text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--cb1);">名前</th><th style="font-size:11px;color:var(--ts);text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--cb1);">メール</th><th style="font-size:11px;color:var(--ts);padding:6px 8px;border-bottom:0.5px solid var(--cb1);">参加</th></tr></thead>'
     +'<tbody>'+rows.map(a=>'<tr><td style="padding:7px 8px;font-size:13px;">'+escHtml(a.emoji)+' '+escHtml(a.nick)+'</td>'
