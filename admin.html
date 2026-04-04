@@ -381,9 +381,9 @@ tr:hover td{background:var(--g50);}
     <!-- クーポン管理 -->
     <div id="tab-coupon" class="tab-content">
       <div class="stats-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
-        <div class="stat-card"><div class="stat-num" id="adm-coup-total">8</div><div class="stat-label">発行済みクーポン</div></div>
-        <div class="stat-card"><div class="stat-num" id="adm-coup-unused">3</div><div class="stat-label">未使用</div></div>
-        <div class="stat-card"><div class="stat-num" id="adm-coup-used">5</div><div class="stat-label">使用済み</div></div>
+        <div class="stat-card"><div class="stat-num" id="adm-coup-total">—</div><div class="stat-label">発行済みクーポン</div></div>
+        <div class="stat-card"><div class="stat-num" id="adm-coup-unused">—</div><div class="stat-label">未使用</div></div>
+        <div class="stat-card"><div class="stat-num" id="adm-coup-used">—</div><div class="stat-label">使用済み</div></div>
       </div>
 
       <!-- 手動発行カード -->
@@ -411,7 +411,7 @@ tr:hover td{background:var(--g50);}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
           <div>
             <div style="font-size:12px;color:var(--ts);margin-bottom:5px;">ノベルティ内容</div>
-            <input id="manual-coup-novelty" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);color:var(--t);font-size:13px;font-family:var(--fs);" value="オリジナルトートバッグ">
+            <input id="manual-coup-novelty" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);color:var(--t);font-size:13px;font-family:var(--fs);" placeholder="例：オリジナルトートバッグ">
           </div>
           <div>
             <div style="font-size:12px;color:var(--ts);margin-bottom:5px;">有効期限</div>
@@ -674,11 +674,6 @@ tr:hover td{background:var(--g50);}
     <div class="field"><label>タイトル</label><input id="cal-title-input" placeholder="例：入学式 会場設営"></div>
     <div class="field"><label>日付</label><input type="date" id="cal-date-input"></div>
     <div class="field"><label>時間（任意）</label><input id="cal-time-input" placeholder="例：9:00〜11:00"></div>
-    <div class="field" id="cal-pt-field"><label>付与ポイント</label>
-      <select id="cal-pt-select" style="width:100%;padding:9px 12px;border-radius:8px;border:0.5px solid var(--cb1);background:var(--cbs);font-size:13px;color:var(--t);font-family:var(--fs);">
-        <option>+1 PT</option><option>+2 PT</option><option selected>+3 PT</option><option>+5 PT</option>
-      </select>
-    </div>
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('modal-calendar')">キャンセル</button>
       <button class="btn primary" onclick="saveCalEvent()">追加する</button>
@@ -1605,17 +1600,14 @@ async function saveCalEvent(){
   const date=document.getElementById('cal-date-input').value||(adminCalYear+'-'+String(adminCalMonth).padStart(2,'0')+'-01');
   const type=document.getElementById('cal-type-select').value;
   const time=(document.getElementById('cal-time-input').value||'').trim();
-  const ptEl=document.getElementById('cal-pt-select');
-  const ptVal=ptEl?ptEl.value:'';
-  const pt=type==='vol'&&ptVal?('+'+ptVal+' PT'):'';
   const modal=document.getElementById('modal-calendar');
   const editId=modal.dataset.editId;
   const editSource=modal.dataset.editSource;
   if(window.adminClient){
     if(editId&&editSource==='calendar_events'){
-      await window.adminClient.from('calendar_events').update({title,date,type,time_text:time,pt}).eq('id',editId);
+      await window.adminClient.from('calendar_events').update({title,date,type,time_text:time}).eq('id',editId);
     } else if(!editId){
-      await window.adminClient.from('calendar_events').insert({title,date,type,time_text:time,pt});
+      await window.adminClient.from('calendar_events').insert({title,date,type,time_text:time});
     }
   }
   delete modal.dataset.editId;
