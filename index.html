@@ -429,9 +429,7 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
     <div id="sarea"></div>
     <div class="st" style="margin-top:1rem;">参加履歴</div>
     <div class="hl" id="hlist">
-      <div class="hr"><div><div class="ht">運動会 準備ボランティア</div><div class="hd">2026/03/15</div></div><div class="hp">+3 WaPT</div></div>
-      <div class="hr"><div><div class="ht">図書室 整理ボランティア</div><div class="hd">2026/02/28</div></div><div class="hp">+2 WaPT</div></div>
-      <div class="hr"><div><div class="ht">ありがとうをもらった</div><div class="hd">2026/02/20</div></div><div class="hp">+1 WaPT</div></div>
+      <div style="text-align:center;padding:1rem;color:var(--cs);font-size:13px;">読み込み中...</div>
     </div>
   </div>
 
@@ -814,6 +812,25 @@ async function loadStats(userId){
   if(cpCount!=null) document.getElementById('scp').textContent=cpCount;
 }
 
+async function loadHistoryDB(userId){
+  if(!sbClient||!userId)return;
+  const list=document.getElementById('hlist');
+  if(!list)return;
+  const{data,error}=await sbClient.from('point_logs')
+    .select('amount,reason,note,created_at')
+    .eq('user_id',userId)
+    .order('created_at',{ascending:false})
+    .limit(20);
+  if(error||!data){list.innerHTML='<div style="text-align:center;padding:1rem;color:var(--cs);font-size:13px;">履歴を読み込めませんでした</div>';return;}
+  if(!data.length){list.innerHTML='<div style="text-align:center;padding:1rem;color:var(--cs);font-size:13px;">まだ参加履歴がありません</div>';return;}
+  const fmt=s=>{const d=new Date(s);return d.getFullYear()+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getDate().toString().padStart(2,'0');};
+  list.innerHTML=data.map(r=>{
+    const label=escHtml(r.note||r.reason||'参加');
+    const pt=r.amount>0?'+'+r.amount:r.amount;
+    return '<div class="hr"><div><div class="ht">'+label+'</div><div class="hd">'+fmt(r.created_at)+'</div></div><div class="hp">'+pt+' WaPT</div></div>';
+  }).join('');
+}
+
 async function loadAdminStatsDB(){
   if(!sbClient)return;
   const now=new Date();
@@ -1048,7 +1065,7 @@ function showMain(){
   bsg();ra();
   if(sbClient){
     loadThanksDB();loadCouponsDB();loadRecsDB();loadVolsDB();loadCalEventsDB();
-    sbClient.auth.getUser().then(({data:{user}})=>{if(user)loadStats(user.id);});
+    sbClient.auth.getUser().then(({data:{user}})=>{if(user){loadStats(user.id);loadHistoryDB(user.id);}});
   }
   if(pendingQrId){const qid=pendingQrId;pendingQrId=null;setTimeout(()=>handleQRScan(qid),400);}
 }
