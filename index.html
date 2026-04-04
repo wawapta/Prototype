@@ -491,10 +491,18 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
   <div id="t-set" class="tc h">
     <div class="st">プロフィール</div>
     <div class="setr">
-      <div class="serow"><span class="sek">ニックネーム</span><span class="sev" id="snick">さくらさん 🌸</span></div>
-      <div class="serow"><span class="sek">メールアドレス</span><span class="sev">sa●●●@●●●.com</span></div>
-      <div class="serow"><span class="sek">所属</span><span class="sev">南町小学校 保護者</span></div>
+      <div style="background:var(--cbp);border-radius:var(--rm);padding:.875rem 1rem;border:.5px solid var(--cb1);">
+        <div style="font-size:12px;color:var(--cs);margin-bottom:5px;">ニックネーム</div>
+        <input id="set-nick" class="ai" placeholder="ニックネームを入力" style="margin-bottom:0;">
+      </div>
+      <div style="background:var(--cbp);border-radius:var(--rm);padding:.875rem 1rem;border:.5px solid var(--cb1);">
+        <div style="font-size:12px;color:var(--cs);margin-bottom:5px;">メールアドレス</div>
+        <input id="set-email" type="email" class="ai" placeholder="example@mail.com" style="margin-bottom:0;">
+        <div style="font-size:11px;color:var(--cs);margin-top:4px;">変更時は確認メールが届きます</div>
+      </div>
     </div>
+    <button style="width:100%;padding:11px;background:var(--teal-600);color:#fff;border:none;border-radius:var(--rm);font-size:14px;font-weight:500;cursor:pointer;margin-bottom:.75rem;" onclick="saveProfileSettings()">プロフィールを保存</button>
+    <div class="ntf" id="set-ntf" style="margin-bottom:1rem;">プロフィールを保存しました。</div>
     <div class="st">学年（進級時に変更）</div>
     <div class="gtr" id="sgr"></div>
     <button style="padding:7px 18px;border-radius:20px;border:.5px solid var(--teal-600);color:var(--teal-600);background:transparent;font-size:12px;cursor:pointer;margin-bottom:1.25rem;" onclick="sg()">学年を保存</button>
@@ -771,8 +779,16 @@ async function loadProfile(user){
       document.getElementById('hnick').textContent=data.nickname+'さん';
       document.getElementById('hav').textContent=data.emoji||'🌸';
       document.getElementById('hgrade').textContent=data.grades||'保護者';
-      document.getElementById('snick').textContent=data.nickname+'さん '+(data.emoji||'🌸');
       document.getElementById('tpt').textContent=data.total_pt||0;
+      // 設定画面の入力欄を初期化
+      const nickInput=document.getElementById('set-nick');
+      const emailInput=document.getElementById('set-email');
+      if(nickInput) nickInput.value=data.nickname||'';
+      if(emailInput) emailInput.value=data.email||user.email||'';
+      // emailがprofilesに未保存なら同期
+      if(!data.email&&user.email&&sbClient){
+        sbClient.from('profiles').update({email:user.email}).eq('id',user.id).then(()=>{});
+      }
       console.log('プロフィール読み込み完了 → showMain');
       return true;
     }
@@ -815,6 +831,36 @@ async function loadAdminStatsDB(){
   if(el3&&tkRes.count!=null)el3.textContent=tkRes.count;
 }
 
+async function saveProfileSettings(){
+  if(!sbClient)return;
+  const nick=(document.getElementById('set-nick')?.value||'').trim();
+  const newEmail=(document.getElementById('set-email')?.value||'').trim();
+  if(!nick){alert('ニックネームを入力してください');return;}
+  const{data:{user}}=await sbClient.auth.getUser().catch(()=>({data:{user:null}}));
+  if(!user)return;
+  const btn=document.querySelector('[onclick="saveProfileSettings()"]');
+  if(btn){btn.textContent='保存中...';btn.disabled=true;}
+  try{
+    // メールアドレス変更
+    if(newEmail&&newEmail!==user.email){
+      const{error:emailErr}=await sbClient.auth.updateUser({email:newEmail});
+      if(emailErr){alert('メールアドレス変更エラー: '+emailErr.message);return;}
+    }
+    // プロフィール更新
+    const updateData={nickname:nick,email:newEmail||user.email};
+    await sbClient.from('profiles').update(updateData).eq('id',user.id);
+    // UI反映
+    document.getElementById('hnick').textContent=nick+'さん';
+    const emoji=document.getElementById('hav').textContent;
+    const n=document.getElementById('set-ntf');n.classList.add('on');setTimeout(()=>n.classList.remove('on'),2500);
+    if(newEmail&&newEmail!==user.email){
+      alert('確認メールを送りました。メール内のリンクをクリックして変更を完了してください。');
+    }
+  }finally{
+    if(btn){btn.textContent='プロフィールを保存';btn.disabled=false;}
+  }
+}
+
 async function saveProfile(nick,emoji,grades){
   if(!sbClient){console.warn('saveProfile: sbClientなし');return;}
   try{
@@ -826,6 +872,7 @@ async function saveProfile(nick,emoji,grades){
       nickname:nick,
       emoji:emoji,
       grades:grades,
+      email:user.email||null,
       total_pt:0,
       role:'member'
     }).select();

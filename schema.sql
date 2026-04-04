@@ -54,3 +54,7 @@ ALTER TABLE public.coupons
 -- 6. participations テーブルに qr_code_id 列を追加
 ALTER TABLE public.participations
   ADD COLUMN IF NOT EXISTS qr_code_id uuid REFERENCES public.qr_codes(id) ON DELETE SET NULL;
+
+-- 7. profiles テーブルに email 列を追加（管理者画面でのメール表示・CSV出力用）
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS email text;
