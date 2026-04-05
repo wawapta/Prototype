@@ -571,7 +571,7 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
 </div>
 <script>
 const PPS=5,SPC=5;
-let pt=0,si=0,sc=false,sr=-1,af='all',cs=1,os=1,oe='🌸',og2=[];
+let pt=0,sc=false,sr=-1,af='all',cs=1,os=1,oe='🌸',og2=[];
 let pendingQrId=new URLSearchParams(location.search).get('qr_id');
 let pendingScanData=null;
 let cups=[];
@@ -580,11 +580,6 @@ let dis=[];
 const ems=['🌸','🌻','🍀','🌊','🦉','🐝','🌷','🦋','🐻','🌈','🍎','⭐'];
 const fls=['全員','1年','2年','3年','4年','5年','6年','地域'];
 const recs=[];
-const evs=[
-  {n:'入学式 会場設営',d:'2026年4月3日（木）',p:3},
-  {n:'登下校 見守りサポート',d:'2026年4月7日（水）',p:2},
-  {n:'図書室 読み聞かせ',d:'2026年4月10日（木）',p:2},
-];
 
 function goAdmin(){
   window.open('admin.html','_blank');
@@ -1315,20 +1310,35 @@ function sp(id,ms){
   el.onclick=()=>el.classList.remove('on');
   setTimeout(()=>el.classList.remove('on'),ms);
 }
-function doScan(){
+async function doScan(){
   if(sc)return;sc=true;
   const btn=document.getElementById('qbtn');btn.textContent='スキャン中...';btn.disabled=true;
   document.getElementById('qin').innerHTML='<div class="qsl"></div>';
-  setTimeout(()=>{
-    const ev=evs[si%evs.length];si++;
-    pendingScanData={name:ev.n,pt:ev.p,qrCodeId:null};
-    document.getElementById('rname').textContent=ev.n;
-    document.getElementById('rdate').textContent=ev.d;
-    document.getElementById('rpt').textContent='+'+ev.p+' WaPT';
-    document.getElementById('sres').classList.add('on');
-    document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--teal-600);padding:8px;">読み取り完了</div>';
-    btn.textContent='もう一度スキャン';btn.disabled=false;
-  },1800);
+  document.getElementById('sres').classList.remove('on');
+  // DBから有効なQRコードを取得
+  if(sbClient){
+    const now=new Date().toISOString().split('T')[0];
+    const{data:qrs}=await sbClient.from('qr_codes').select('id').gte('expires_at',now).order('created_at',{ascending:false}).limit(20);
+    if(qrs&&qrs.length){
+      // 自分が未スキャンのQRコードを探す
+      const{data:{user:me}}=await sbClient.auth.getUser().catch(()=>({data:{user:null}}));
+      let targetId=null;
+      for(const q of qrs){
+        const{data:dup}=await sbClient.from('participations').select('id').eq('user_id',me?.id).eq('qr_code_id',q.id).maybeSingle();
+        if(!dup){targetId=q.id;break;}
+      }
+      btn.textContent='QRコードをスキャンする';btn.disabled=false;sc=false;
+      if(targetId){
+        handleQRScan(targetId);
+      }else{
+        document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--cs);padding:8px;">現在スキャン可能なQRコードがありません</div>';
+      }
+      return;
+    }
+  }
+  // QRコードがない場合
+  btn.textContent='QRコードをスキャンする';btn.disabled=false;sc=false;
+  document.getElementById('qin').innerHTML='<div style="font-size:13px;color:var(--cs);padding:8px;">現在スキャン可能なQRコードがありません</div>';
 }
 
 async function handleQRScan(qrId){
