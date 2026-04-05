@@ -782,8 +782,8 @@ async function loadProfile(user){
     const rows=await res.json();
     console.log('loadProfile結果:', rows);
     const data=rows&&rows.length>0?rows[0]:null;
-    if(data&&data.nickname){
-      document.getElementById('hnick').textContent=data.nickname+'さん';
+    if(data){
+      document.getElementById('hnick').textContent=(data.nickname||'ユーザー')+'さん';
       document.getElementById('hav').textContent=data.emoji||'🌸';
       document.getElementById('hgrade').textContent=data.grades||'保護者';
       document.getElementById('tpt').textContent=data.total_pt||0;
@@ -948,7 +948,7 @@ async function joinVolDB(volId,volTitle,ptAmount){
       volunteer_id:volId,
       pt_earned:ptAmount
     });
-    if(error)return 'error';
+    if(error){console.error('participations insertエラー:',error.message,error.code);return 'error';}
     // ポイント付与（応募ポイント）
     await addPtDB(user.id,ptAmount,'volunteer_apply',volTitle);
     return 'ok';
@@ -1100,10 +1100,9 @@ async function doLogout(){
 
   let handled=false;
 
-  // SIGNED_INのみ処理（INITIAL_SESSIONは無視）
   sbClient.auth.onAuthStateChange(async(event,session)=>{
     console.log('authStateChange:', event, session?.user?.id);
-    if(event==='SIGNED_IN'&&session&&!handled){
+    if((event==='SIGNED_IN'||event==='INITIAL_SESSION')&&session&&!handled){
       handled=true;
       const hasProfile=await loadProfile(session.user);
       if(hasProfile) showMain();
@@ -1624,7 +1623,9 @@ async function calJoin(btn,idx){
       calEvents[idx].joined=true;
       btn.textContent='登録済み';btn.style.opacity='.5';
     }else{
-      btn.textContent='参加する';btn.disabled=false;
+      btn.textContent='エラー';
+      setTimeout(()=>{btn.textContent='参加する';btn.disabled=false;},2000);
+      console.error('calJoin失敗 volunteer_id:',e.volunteer_id,'idx:',idx);
     }
   }else{
     calEvents[idx].joined=true;
