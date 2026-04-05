@@ -256,6 +256,7 @@ html,body{height:100%;font-family:var(--fs);background:var(--cbs);color:var(--ct
       <div style="text-align:right;margin-bottom:16px;"><span style="font-size:12px;color:var(--teal-600);cursor:pointer;" onclick="resetPassword()">パスワードを忘れた方</span></div>
       <div id="l-error" style="display:none;background:#fff0ed;border:0.5px solid #fcc;border-radius:8px;padding:9px 12px;font-size:12px;color:#c0392b;margin-bottom:12px;"></div>
       <button onclick="doLogin()" style="width:100%;padding:14px;background:var(--teal-600);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;letter-spacing:.02em;">ログイン</button>
+      <button onclick="doMagicLink()" style="width:100%;padding:12px;background:transparent;color:var(--teal-600);border:0.5px solid var(--teal-600);border-radius:12px;font-size:13px;cursor:pointer;margin-top:8px;">メールリンクでログイン（パスワード不要）</button>
       <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--cs);">アカウントをお持ちでない方は<span style="color:var(--teal-600);cursor:pointer;font-weight:500;" onclick="switchTab(2)">新規登録</span></div>
     </div>
 
@@ -652,14 +653,16 @@ async function doLogin(){
   const btn=document.querySelector('#lform-login button');
   if(errEl) errEl.style.display='none';
 
-  if(!sbClient){showOnboarding();return;}
+  if(!sbClient){
+    if(errEl){errEl.textContent='接続エラー: Supabaseクライアントの初期化に失敗しました。ページを再読み込みしてください。';errEl.style.display='block';}
+    return;
+  }
   if(!email||!pass){
     if(errEl){errEl.textContent='メールアドレスとパスワードを入力してください';errEl.style.display='block';}
     return;
   }
   if(btn){btn.textContent='ログイン中...';btn.disabled=true;}
   try{
-    // 15秒タイムアウト
     let result;
     try{
       result=await Promise.race([
@@ -667,25 +670,21 @@ async function doLogin(){
         new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),15000))
       ]);
     }catch(te){
-      if(errEl){errEl.textContent=te.message==='timeout'?'接続タイムアウト。しばらく後に再試行してください':'接続エラーが発生しました';errEl.style.display='block';}
+      if(errEl){errEl.textContent=te.message==='timeout'?'接続タイムアウト: Supabaseプロジェクトが一時停止されていないか確認してください (app.supabase.com)':'接続エラー: '+te.message;errEl.style.display='block';}
       return;
     }
     const {data,error}=result;
     if(error){
-      if(errEl){
-        if(error.message.includes('Invalid')||error.message.includes('invalid_credentials')){
-          errEl.textContent='メールアドレスまたはパスワードが違います';
-        }else if(error.message.includes('confirm')||error.message.includes('verified')){
-          errEl.textContent='メールアドレスが未確認です。確認メールのリンクをクリックしてください';
-        }else{
-          errEl.textContent='ログインエラー：'+error.message;
-        }
-        errEl.style.display='block';
-      }
+      // Supabaseのエラーをそのまま表示（日本語訳付き）
+      let msg=error.message||'不明なエラー';
+      if(msg.includes('Invalid login')||msg.includes('invalid_credentials')||msg.includes('wrong')){msg='メールアドレスまたはパスワードが違います ('+msg+')';}
+      else if(msg.includes('not confirmed')||msg.includes('confirm')){msg='メールアドレスが未確認です。確認メールのリンクをクリックしてください ('+msg+')';}
+      else if(msg.includes('disabled')||msg.includes('banned')){msg='このアカウントは無効です ('+msg+')';}
+      if(errEl){errEl.textContent=msg;errEl.style.display='block';}
       return;
     }
     if(!data?.user){
-      if(errEl){errEl.textContent='ログインに失敗しました。もう一度お試しください';errEl.style.display='block';}
+      if(errEl){errEl.textContent='ログインに失敗しました（ユーザー情報が取得できません）';errEl.style.display='block';}
       return;
     }
     console.log('ログイン成功 user:', data.user.id);
@@ -694,10 +693,26 @@ async function doLogin(){
     else showOnboarding();
   } catch(e){
     console.error('ログインエラー:',e);
-    if(errEl){errEl.textContent='エラーが発生しました：'+e.message;errEl.style.display='block';}
+    if(errEl){errEl.textContent='エラー: '+e.message;errEl.style.display='block';}
   } finally {
     if(btn){btn.textContent='ログイン';btn.disabled=false;}
   }
+}
+
+async function doMagicLink(){
+  const email=document.getElementById('l-email')?.value?.trim();
+  const errEl=document.getElementById('l-error');
+  if(errEl) errEl.style.display='none';
+  if(!email){if(errEl){errEl.textContent='上のフォームにメールアドレスを入力してください';errEl.style.display='block';}return;}
+  if(!sbClient){if(errEl){errEl.textContent='接続エラー: Supabaseクライアントの初期化に失敗しました';errEl.style.display='block';}return;}
+  const allBtns=document.querySelectorAll('#lform-login button');
+  allBtns.forEach(b=>{b.disabled=true;});
+  const{error}=await sbClient.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+  allBtns.forEach(b=>{b.disabled=false;});
+  if(error){if(errEl){errEl.textContent='エラー: '+error.message;errEl.style.display='block';}return;}
+  document.getElementById('verify-email-addr').textContent=email;
+  ['lform-login','lform-register'].forEach(id=>document.getElementById(id)&&(document.getElementById(id).style.display='none'));
+  document.getElementById('lform-verify').style.display='block';
 }
 
 async function doRegister(){
