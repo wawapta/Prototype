@@ -793,42 +793,28 @@ async function loadProfile(user){
   if(!user)return false;
   console.log('loadProfile開始 userId:', user.id);
   try{
-    const {data:{session}}=await sbClient.auth.getSession();
-    const token=session?.access_token;
-    if(!token){console.log('トークンなし');return false;}
-    const ctrl=new AbortController();
-    const timer=setTimeout(()=>ctrl.abort(),10000);
-    let res;
-    try{
-      res=await fetch(
-        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=*`,
-        {signal:ctrl.signal,headers:{
-          'apikey':SUPABASE_KEY,
-          'Authorization':`Bearer ${token}`,
-          'Content-Type':'application/json'
-        }}
-      );
-    }finally{clearTimeout(timer);}
-    const rows=await res.json();
-    console.log('loadProfile結果:', rows);
-    const data=rows&&rows.length>0?rows[0]:null;
+    // SWのfetchインターセプトでAbortControllerが効かないためSDK経由で取得
+    const {data,error}=await Promise.race([
+      sbClient.from('profiles').select('*').eq('id',user.id).single(),
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error('profile_timeout')),10000))
+    ]);
+    console.log('loadProfile結果:', data, error?.code);
     if(data){
       document.getElementById('hnick').textContent=(data.nickname||'ユーザー')+'さん';
       document.getElementById('hav').textContent=data.emoji||'🌸';
       document.getElementById('hgrade').textContent=data.grades||'保護者';
       document.getElementById('tpt').textContent=data.total_pt||0;
-      // 設定画面の入力欄を初期化
       const nickInput=document.getElementById('set-nick');
       const emailInput=document.getElementById('set-email');
       if(nickInput) nickInput.value=data.nickname||'';
       if(emailInput) emailInput.value=data.email||user.email||'';
-      // emailがprofilesに未保存なら同期
       if(!data.email&&user.email&&sbClient){
         sbClient.from('profiles').update({email:user.email}).eq('id',user.id).then(()=>{});
       }
       console.log('プロフィール読み込み完了 → showMain');
       return true;
     }
+    // PGRST116=行なし（新規ユーザー）
     console.log('プロフィールなし → showOnboarding');
     return false;
   }catch(e){

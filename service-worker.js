@@ -1,5 +1,5 @@
 // WaWa Service Worker — オフライン対応 + 参加記録キュー
-const CACHE_NAME = 'wawa-v1';
+const CACHE_NAME = 'wawa-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',
