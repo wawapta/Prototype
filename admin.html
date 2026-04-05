@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WaWa 管理者画面</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -1474,7 +1474,14 @@ async function addNovelty(){
   const expire=parseInt(document.getElementById('nv-add-expire').value)||3;
   if(!window.adminClient){alert('ログインが必要です');return;}
   const{error}=await window.adminClient.from('novelties').insert({sort_order:order,name,description:desc,stock,expire_months:expire});
-  if(error){alert('追加に失敗しました: '+error.message);return;}
+  if(error){
+    if(error.message.includes('sort_order')||error.message.includes('column')){
+      alert('DBの設定が必要です。Supabaseのエディタで以下のSQLを実行してください:\n\nALTER TABLE public.novelties ADD COLUMN IF NOT EXISTS sort_order integer NOT NULL DEFAULT 1;\nCREATE UNIQUE INDEX IF NOT EXISTS novelties_sort_order_key ON public.novelties(sort_order);');
+    }else{
+      alert('追加に失敗しました: '+error.message);
+    }
+    return;
+  }
   document.getElementById('nv-add-order').value='';
   document.getElementById('nv-add-name').value='';
   document.getElementById('nv-add-desc').value='';
