@@ -135,6 +135,20 @@ tr:hover td{background:var(--g50);}
 </style>
 </head>
 <body>
+<!-- 管理者ログイン画面（未ログイン時に表示） -->
+<div id="admin-login-screen" style="display:none;position:fixed;inset:0;background:#edf6ff;z-index:9999;align-items:center;justify-content:center;">
+  <div style="width:360px;background:#fff;border-radius:16px;padding:2rem;box-shadow:0 4px 24px rgba(40,120,214,.15);">
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <div style="font-size:30px;font-weight:600;"><span style="color:#2878d6;">Wa</span><span style="color:#e0a800;">Wa</span></div>
+      <div style="font-size:13px;color:#4a6a8a;margin-top:4px;">役員・管理者画面</div>
+    </div>
+    <div style="margin-bottom:12px;"><div style="font-size:12px;color:#4a6a8a;margin-bottom:4px;">メールアドレス</div><input id="adm-email" type="email" placeholder="example@mail.com" style="width:100%;padding:11px 13px;border-radius:8px;border:0.5px solid rgba(40,120,214,.2);background:#edf6ff;color:#0c2d54;font-size:14px;font-family:inherit;box-sizing:border-box;outline:none;"></div>
+    <div style="margin-bottom:12px;"><div style="font-size:12px;color:#4a6a8a;margin-bottom:4px;">パスワード</div><input id="adm-pass" type="password" placeholder="パスワードを入力" style="width:100%;padding:11px 13px;border-radius:8px;border:0.5px solid rgba(40,120,214,.2);background:#edf6ff;color:#0c2d54;font-size:14px;font-family:inherit;box-sizing:border-box;outline:none;" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
+    <div id="adm-login-error" style="display:none;padding:9px 12px;background:#fff0ed;border-radius:8px;font-size:12px;color:#c0392b;margin-bottom:12px;"></div>
+    <button id="adm-login-btn" onclick="doAdminLogin()" style="width:100%;padding:13px;background:#2878d6;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;">ログイン</button>
+    <div style="text-align:center;margin-top:12px;"><a href="index.html" style="font-size:12px;color:#4a6a8a;text-decoration:none;">← ユーザー画面に戻る</a></div>
+  </div>
+</div>
 <div class="layout">
 
 <!-- サイドバー -->
@@ -766,11 +780,17 @@ tr:hover td{background:var(--g50);}
   // セッション確認
   const {data:{session}}=await client.auth.getSession();
   if(!session){
-    console.warn('未ログイン → ログイン画面へリダイレクト');
-    location.href='index.html';
+    // ログインフォームを表示
+    document.body.style.visibility='visible';
+    const ls=document.getElementById('admin-login-screen');
+    if(ls){ls.style.display='flex';}
     return;
   }
 
+  await initAdminWithSession(session);
+})();
+
+async function initAdminWithSession(session){
   // プロフィールのroleを確認
   const ctrl=new AbortController();
   const timer=setTimeout(()=>ctrl.abort(),10000);
@@ -788,23 +808,63 @@ tr:hover td{background:var(--g50);}
     role=rows&&rows.length>0?rows[0].role:null;
   }catch(e){
     console.error('ロール確認エラー:',e.message);
-    location.href='index.html';
+    document.body.style.visibility='visible';
+    const ls=document.getElementById('admin-login-screen');
+    if(ls){ls.style.display='flex';}
     return;
   }finally{clearTimeout(timer);}
 
   if(role!=='admin'){
-    console.warn('管理者権限なし (role='+role+') → ログイン画面へリダイレクト');
-    location.href='index.html';
+    console.warn('管理者権限なし (role='+role+')');
+    document.body.style.visibility='visible';
+    const ls=document.getElementById('admin-login-screen');
+    const errEl=document.getElementById('adm-login-error');
+    if(errEl){errEl.textContent='管理者権限がありません（role: '+role+'）';errEl.style.display='block';}
+    if(ls){ls.style.display='flex';}
     return;
   }
 
   // 認証OK → ページを表示
   console.log('管理者認証OK');
+  document.getElementById('admin-login-screen').style.display='none';
   document.body.style.visibility='visible';
-  // 初期データ読み込み
   loadDashboard();
   loadUsers();
-})();
+}
+
+async function doAdminLogin(){
+  const email=document.getElementById('adm-email').value.trim();
+  const pass=document.getElementById('adm-pass').value;
+  const errEl=document.getElementById('adm-login-error');
+  const btn=document.getElementById('adm-login-btn');
+  errEl.style.display='none';
+  if(!email||!pass){errEl.textContent='メールアドレスとパスワードを入力してください';errEl.style.display='block';return;}
+  btn.textContent='ログイン中...';btn.disabled=true;
+  try{
+    const result=await Promise.race([
+      window.adminClient.auth.signInWithPassword({email,password:pass}),
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),15000))
+    ]);
+    const{data,error}=result;
+    if(error){
+      if(error.message.includes('Invalid')||error.message.includes('invalid_credentials')||error.message.includes('wrong')){
+        errEl.textContent='メールアドレスまたはパスワードが違います';
+      }else if(error.message.includes('confirm')||error.message.includes('verified')){
+        errEl.textContent='メールアドレスが未確認です。確認メールのリンクをクリックしてください';
+      }else{
+        errEl.textContent='ログインエラー：'+error.message;
+      }
+      errEl.style.display='block';
+      return;
+    }
+    await initAdminWithSession(data.session);
+  }catch(e){
+    errEl.textContent=e.message==='timeout'?'接続タイムアウト。しばらく後に再試行してください':'エラーが発生しました：'+e.message;
+    errEl.style.display='block';
+  }finally{
+    btn.textContent='ログイン';btn.disabled=false;
+  }
+}
 
 const users=[
   {e:'🌿',n:'基洋さん',email:'yoshida@pta.jp',grade:'役員',pt:48,vol:12,date:'2026/01/10',role:'admin'},
